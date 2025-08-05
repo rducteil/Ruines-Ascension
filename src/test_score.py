@@ -1,8 +1,8 @@
-from player import Player
-from player_class import CLASSES
-from weapon import Weapon
-from armor import Armor
-from artifact import Artifact
+from core.player import Player
+from core.player_class import CLASSES
+from core.weapon import Weapon
+from core.armor import Armor
+from core.artifact import Artifact
 
 # Crée un joueur de classe Arpenteur
 player = Player("Elyon", "arpenteur")
