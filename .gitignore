@@ -1,0 +1,15 @@
+# Fichiers Python
+__pycache__/
+*.pyc
+
+# Environnement virtuel
+venv/
+env/
+
+# Éditeurs
+.vscode/
+.idea/
+
+# Fichiers système
+.DS_Store
+Thumbs.db
