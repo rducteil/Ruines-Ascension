@@ -24,3 +24,12 @@ class Entity:
         self.current_hp += amount
         if self.current_hp > self.max_hp:
             self.current_hp = self.max_hp
+    
+    def __str__(self):
+        return (
+            f"PV     : {self.current_hp}/{self.max_hp}\n"
+            f"ATQ    : {self.base_attack}\n"
+            f"DEF    : {self.base_defense}\n"
+            f"END    : {self.base_endurance}\n"
+            f"CHANCE : {self.luck}"
+        )

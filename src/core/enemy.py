@@ -9,3 +9,5 @@ class Enemy(Entity):
     def choose_action(self):
         # Placeholder, tu pourras personnaliser plus tard
         return "basic_attack"
+    
+    
