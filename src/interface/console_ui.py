@@ -4,6 +4,7 @@ from core.weapon import Weapon
 from core.armor import Armor
 from core.artifact import Artifact
 from core.enemy import Enemy
+from core.combat import *
 
 
 def game_loop(player):
@@ -23,8 +24,8 @@ def game_loop(player):
         if choice == "1":
             # Création simple d'un ennemi
             enemy = Enemy("Créature étrange", max_hp=60, base_attack=20, base_defense=10, base_endurance=50, luck=5)
-            print(f"\n⚔️ Tu affrontes {enemy.name} ! (WIP, pas de combat encore)")
-            # (plus tard : appeler simulate_combat(player, enemy))
+            print(f"\n⚔️ Tu affrontes {enemy.name} !")
+            simulate_combat(player, enemy)
 
         elif choice == "2":
             print("🔍 Tu explores un couloir en ruine... Rien pour le moment.")

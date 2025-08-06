@@ -1,4 +1,4 @@
-from entity import Entity
+from core.entity import Entity
 
 class Enemy(Entity):
     def __init__(self, name, max_hp, base_attack, base_defense, base_endurance, luck, behavior=None):

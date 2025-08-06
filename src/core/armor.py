@@ -1,4 +1,4 @@
-from equipment import Equipment
+from core.equipment import Equipment
 
 class Armor(Equipment):
     def __init__(self, name, durability, bonus_defense, description=""):

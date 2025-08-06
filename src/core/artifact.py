@@ -1,4 +1,4 @@
-from equipment import Equipment
+from core.equipment import Equipment
 
 class Artifact(Equipment):
     def __init__(self, name, effect_dict, description=""):
