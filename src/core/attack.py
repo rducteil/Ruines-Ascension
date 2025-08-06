@@ -25,5 +25,8 @@ def calculate_damage(attacker, defender, power=1.0, crit_multiplier=2):
     if is_crit:
         damage *= crit_multiplier
 
+    print(f"[DEBUG] Base ATQ : {attacker.base_attack}")
+    print(f"[DEBUG] Bonus arme : {attacker.weapon.bonus_attack if attacker.weapon else 0}")
+
     return int(damage), is_crit
 

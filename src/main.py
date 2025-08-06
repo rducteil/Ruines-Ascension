@@ -1,3 +1,4 @@
+import time
 from core.player import Player
 from core.enemy import Enemy
 from core.player_class import CLASSES
@@ -17,15 +18,18 @@ def choose_class():
 
 def main():
     print("=== Bienvenue dans Ruines Ascension ===")
+    time.sleep(0.5)
     player_name = input("Entre ton nom d'aventurier : ")
     class_name = choose_class()
 
     player = Player(player_name, class_name)
     print(f"\n✅ {player.name}, {class_name.capitalize()} prêt pour l'ascension !\n")
+    time.sleep(1)
 
     # Boucle de test : un combat à la fois
     while True:
         print("\nUne nouvelle créature t'attend...")
+        time.sleep(0.5)
         enemy = Enemy("Bête sauvage", max_hp=100, base_attack=30, base_defense=20, base_endurance=50, luck=10)
 
         simulate_combat(player, enemy)
