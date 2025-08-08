@@ -1,20 +1,28 @@
 from core.entity import Entity
 from core.player_class import CLASSES
 
+base_stats = {
+    "max_hp" : 50, 
+    "base_attack" : 10,
+    "base_defense" : 10,
+    "base_endurance" : 50,
+    "luck" : 5
+}
+
 class Player(Entity):
-    def __init__(self, name, class_name):
-        super().__init__(name, **CLASSES[class_name]["stats"])
-        self.class_name = class_name
-        self.class_attack = CLASSES[class_name]["attack"]
-        self.inventory = []
-        self.zone = 1
+    def __init__(self, name, type):
+        super().__init__(name, **base_stats)
+        self.type = type
+        self.max_hp += CLASSES[type].bonus_hp
+        self.base_attack += CLASSES[type].bonus_attack
+        self.base_defense += CLASSES[type].bonus_defense
+        self.base_endurance += CLASSES[type].bonus_endurance
         self.energy = self.base_endurance
-        self.weapon = None
-        self.armor = None
-        self.artifact = None
+        self.luck += CLASSES[type].bonus_luck
+        self.class_attack = CLASSES[type].class_attack
 
     def __str__(self):
-        return f"{self.name} ({self.class_name})\n" + super().__str__()
+        return f"{self.name} ({self.type})\n" + super().__str__()
 
     def print_equipment(self):
         print("Équipement actuel :")
@@ -40,5 +48,7 @@ class Player(Entity):
         if self.energy < 0:
             self.energy = 0
 
-    def restore_energy(self):
-        self.energy = self.base_endurance
+    def restore_energy(self, amount):
+        self.energy += amount
+        if self.energy >= self.base_endurance:
+            self.energy = self.base_endurance

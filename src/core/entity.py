@@ -11,6 +11,7 @@ class Entity:
         self.weapon = None
         self.armor = None
         self.artifact = None
+        #self.effect = None
 
     def is_alive(self):
         return self.current_hp > 0

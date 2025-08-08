@@ -1,58 +1,42 @@
 from core.attack import Attack
 
+class PlayerClass:
+    def __init__(self, bonus_hp=0, bonus_attack=0, bonus_defense=0, bonus_endurance=0, bonus_luck=0, class_attack=None):
+        self.bonus_hp = bonus_hp
+        self.bonus_attack = bonus_attack
+        self.bonus_defense = bonus_defense
+        self.bonus_endurance = bonus_endurance
+        self.bonus_luck = bonus_luck
+        self.class_attack = class_attack
+
+
 CLASSES = {
-    "guerrier": {
-        "stats": {
-            "max_hp": 200,
-            "base_attack": 100,
-            "base_defense": 100,
-            "base_endurance": 50,
-            "luck": 50
-        },
-        "attack": Attack("Coup de taille", power=1.0, cost=10)
-    },
-
-    "mystique": {
-        "stats": {
-            "max_hp": 50,
-            "base_attack": 300,
-            "base_defense": 50,
-            "base_endurance": 50,
-            "luck": 50
-        },
-        "attack": Attack("Rayon mystique", power=1.5, cost=20)
-    },
-
-    "vagabond": {
-        "stats": {
-            "max_hp": 100,
-            "base_attack": 50,
-            "base_defense": 50,
-            "base_endurance": 200,
-            "luck": 100
-        },
-        "attack": Attack("Frappe agile", power=0.8, cost=5, crit_multiplier=3)
-    },
-
-    "arpenteur": {
-        "stats": {
-            "max_hp": 120,
-            "base_attack": 80,
-            "base_defense": 80,
-            "base_endurance": 150,
-            "luck": 70
-        },
-        "attack": Attack("Percée rapide", power=1.1, cost=10)
-    },
-
-    "sentinelle": {
-        "stats": {
-            "max_hp": 150,
-            "base_attack": 50,
-            "base_defense": 200,
-            "base_endurance": 50,
-            "luck": 50
-        },
-        "attack": Attack("Mur écrasant", power=1.2, cost=15)
-    }
+    "guerrier" : PlayerClass(
+        bonus_attack = 25,
+        bonus_hp = 15,
+        bonus_defense = 10,
+        class_attack = Attack("Coup de taille", cost=5)
+    ),
+    "mystique" : PlayerClass(
+        bonus_attack = 40,
+        bonus_luck = 10,
+        class_attack = Attack("Rayon mystique", cost=20)
+    ),
+    "vagabond" : PlayerClass(
+        bonus_endurance = 25,
+        bonus_hp = 15,
+        bonus_luck = 10,
+        class_attack = Attack("Frappe agile", cost=10, crit_multiplier=3)
+    ),
+    "arpenteur" : PlayerClass(
+        bonus_endurance = 25,
+        bonus_attack = 15,
+        bonus_hp = 10,
+        class_attack = Attack("Percé rapide", cost=10)
+    ),
+    "sentinelle" : PlayerClass(
+        bonus_defense = 40,
+        bonus_hp = 10,
+        class_attack = Attack("Mur écrasant", cost=20)
+    )
 }
