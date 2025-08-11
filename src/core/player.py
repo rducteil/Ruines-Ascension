@@ -1,54 +1,64 @@
+from __future__ import annotations
+from typing import Optional, Literal
 from core.entity import Entity
-from core.player_class import CLASSES
-
-base_stats = {
-    "max_hp" : 50, 
-    "base_attack" : 10,
-    "base_defense" : 10,
-    "base_endurance" : 50,
-    "luck" : 5
-}
+from core.stats import Stats
+from core.resource import Resource
+from core.player_class import CLASSES, PlayerClass
+from core.equipment import Equipment
+from core.settings import BASE_PLAYER
 
 class Player(Entity):
-    def __init__(self, name, type):
-        super().__init__(name, **base_stats)
-        self.type = type
-        self.max_hp += CLASSES[type].bonus_hp
-        self.base_attack += CLASSES[type].bonus_attack
-        self.base_defense += CLASSES[type].bonus_defense
-        self.base_endurance += CLASSES[type].bonus_endurance
-        self.energy = self.base_endurance
-        self.luck += CLASSES[type].bonus_luck
-        self.class_attack = CLASSES[type].class_attack
+    def __init__(self, name: str, player_class_key: str,base_stats: Stats, base_hp_max: int,
+        base_sp_max: int) :
+        super().__init__(name=name, base_stats=base_stats, base_hp_max=base_hp_max, base_sp_max=base_sp_max)
+
+        # Equipment slots (optional at start)
+        self.weapon: Optional[Equipment] = None
+        self.armor: Optional[Equipment] = None
+        self.artifact: Optional[Equipment] = None
+
+        # Apply class bonuses (stats + resources) if provided
+        self.player_class: PlayerClass = CLASSES[player_class_key]
+        self.player_class.apply_to(self)
+
+    Slot = Literal["weapon", "armor", "artifact"]
 
     def __str__(self):
-        return f"{self.name} ({self.type})\n" + super().__str__()
+        return f"{self.name} ({self.player_class.name})\n" + super().__str__()
 
-    def print_equipment(self):
-        print("Équipement actuel :")
-        print(f"  Arme     : {self.weapon.name if self.weapon else 'Aucune'}")
-        print(f"  Armure   : {self.armor.name if self.armor else 'Aucune'}")
-        print(f"  Artefact : {self.artifact.name if self.artifact else 'Aucun'}")
-    
-    def equip(self, item, slot: str):
-        current_item = getattr(self, slot)
+    def equip(self, item: object, slot: str) -> None:
+        """Equip an item into a slot ("weapon", "armor", "artifact")."""
+        current_item = getattr(self, slot, None)
         if current_item:
-            current_item.on_unequip(self)
+            # Unequip current item first
+            if hasattr(current_item, "on_unequip"):
+                current_item.on_unequip(self)
         setattr(self, slot, item)
-        item.on_equip(self)
+        if hasattr(item, "on_equip"):
+            item.on_equip(self)
 
-    def unequip(self, slot: str):
-        current_item = getattr(self, slot)
-        if current_item:
-            current_item.on_unequip(self)
+    def unequip(self, slot: str) -> None:
+        item = getattr(self, slot, None)
+        if item:
+            if hasattr(item, "on_unequip"):
+                item.on_unequip(self)
             setattr(self, slot, None)
 
-    def use_energy(self, amount):
-        self.energy -= amount
-        if self.energy < 0:
-            self.energy = 0
+    def print_equipment(self) -> None:
+        # Console helper (safe no-op for other UIs)
+        w = getattr(self.weapon, "name", "Aucune") if self.weapon else "Aucune"
+        a = getattr(self.armor, "name", "Aucune") if self.armor else "Aucune"
+        r = getattr(self.artifact, "name", "Aucun") if self.artifact else "Aucun"
+        print("Équipement actuel :")
+        print(f"  Arme     : {w}")
+        print(f"  Armure   : {a}")
+        print(f"  Artefact : {r}")
 
-    def restore_energy(self, amount):
-        self.energy += amount
-        if self.energy >= self.base_endurance:
-            self.energy = self.base_endurance
+    def __str__(self) -> str:
+        return f"{self.name} (classe: {self.player_class.name})"
+
+p = Player(
+    name = "Moi",
+    player_class_key = "guerrier",
+    **BASE_PLAYER()
+)

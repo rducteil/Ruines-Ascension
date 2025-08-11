@@ -1,15 +1,16 @@
 import random
+from core.effects import Effect
 
 class Attack:
-    def __init__(self, name, cost=0, crit_multiplier=2):
+    def __init__(self, name, base_damage=0, cost=0, crit_multiplier=2, effect_list: list[Effect] = [None]):
         self.name = name
+        self.base_damage = base_damage
+        self.effect_list = effect_list
         self.cost = cost
         self.crit_multiplier = crit_multiplier
 
-    def calculate(self, attacker, defender):
-        return calculate_damage(attacker, defender, self.crit_multiplier)
     
-def calculate_damage(attacker, defender, crit_multiplier=2):
+""" def calculate_damage(attacker, defender, crit_multiplier=2):
     base = attacker.base_attack
     weapon_bonus = attacker.weapon.bonus_attack if attacker.weapon else 0
     total_attack = base + weapon_bonus
@@ -24,7 +25,4 @@ def calculate_damage(attacker, defender, crit_multiplier=2):
     if is_crit:
         damage *= crit_multiplier
 
-    return int(damage), is_crit
-
-def give_effect(attacker, defender, effect):
-    pass
+    return int(damage), is_crit """
