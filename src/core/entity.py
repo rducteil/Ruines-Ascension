@@ -1,7 +1,6 @@
 from core.stats import Stats
 from core.settings import *
 from core.resource import Resource
-from core.resource_modifier import ResourceModifier
 
 class Entity:
     def __init__(self, name: str, base_stats: Stats, base_hp_max: int, base_sp_max: int):

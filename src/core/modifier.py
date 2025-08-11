@@ -7,3 +7,8 @@ class ResourceModifier:
     sp_max_flat: int = 0
     sp_max_pct: float = 0.0
     
+@dataclass
+class StatPercentMod:
+    attack_pct: float = 0.0
+    defense_pct: float = 0.0
+    luck_pct: float = 0.0

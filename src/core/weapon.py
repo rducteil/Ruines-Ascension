@@ -24,10 +24,6 @@ class Weapon(Equipment):
 
     # --- hooks called by the combat engine ---
     def on_after_attack(self, ctx) -> None:
-        """Called by the combat engine after the holder performs an attack.
-        The weapon degrades by 1 on each use (tune as needed).
-        """
-        # TODO: Tune wear logic (e.g., more wear on heavy attacks / on crit)
         self.degrade(1)
 
     # --- convenience ---

@@ -20,9 +20,5 @@ class Armor(Equipment):
 
     # --- hooks called by the combat engine ---
     def on_after_hit(self, ctx, damage_taken: int) -> None:
-        """Called by the combat engine after the holder takes damage.
-        Wear at least 1, plus 1 per 10 damage (example formula).
-        """
-        # TODO: Adjust wear formula to your balance (e.g., proportional to raw vs. mitigated dmg)
         wear = max(1, damage_taken // 10)
         self.degrade(wear)
