@@ -8,14 +8,7 @@ from core.entity import Entity
 class Weapon(Equipment):
     """A weapon that grants a flat attack bonus and (optionally) special attacks."""
 
-    def __init__(
-        self,
-        name: str,
-        durability_max: int,
-        bonus_attack: int = 0,
-        special_attacks: Optional[List[Attack]] = None,
-        description: str = "",
-    ) -> None:
+    def __init__(self,name: str, durability_max: int, bonus_attack: int = 0, special_attacks: Optional[List[Attack]] = None, description: str = ""):
         super().__init__(name=name, durability_max=durability_max, description=description)
         self.bonus_attack: int = int(bonus_attack)
         self.special_attacks: List[Attack] = list(special_attacks or [])
