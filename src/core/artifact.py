@@ -1,14 +1,24 @@
 from __future__ import annotations
+"""Artifact: donne uniquement des bonus en pourcentage (ATK/DEF…)."""
 
+from typing import TYPE_CHECKING
 from core.equipment import Equipment
-from core.entity import Entity
 from modifier import StatPercentMod
+if TYPE_CHECKING:
+    from core.entity import Entity
+
 
 
 class Artifact(Equipment):
     """A versatile equippable that applies several flat stat bonuses."""
 
-    def __init__(self, name: str, durability_max: int, atk_pct=0.0, def_pct=0.0, lck_pct=0.0, description: str = ""):
+    def __init__(self, 
+                 name: str, 
+                 durability_max: int, 
+                 atk_pct=0.0, 
+                 def_pct=0.0, 
+                 lck_pct=0.0, 
+                 description: str = ""):
         super().__init__(name=name, durability_max=durability_max, description=description)
         self.atk_pct = int(atk_pct)
         self.def_pct = int(def_pct)

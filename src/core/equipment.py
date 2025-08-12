@@ -1,9 +1,20 @@
-from typing import Optional
-from core.entity import Entity
+from __future__ import annotations
+"""Base des objets équipables (durabilité, hooks on_equip/on_unequip).
+
+- Règle: à 0, l'objet reste équipé mais bonus désactivés.
+"""
+
+from typing import Optional, TYPE_CHECKING
 from core.resource import Resource
+if TYPE_CHECKING:
+    from core.entity import Entity
+
 
 class Equipment:
-    def __init__(self, name: str, durability_max: int, description: str = "") -> None:
+    def __init__(self, 
+                 name: str, 
+                 durability_max: int, 
+                 description: str = "") -> None:
         self.name: str = name
         self.description: str = description
         self.durability = Resource(current=durability_max, maximum=durability_max)

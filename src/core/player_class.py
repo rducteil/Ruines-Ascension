@@ -1,4 +1,6 @@
 from __future__ import annotations
+"""Définitions des classes de joueur + registre CLASSES."""
+
 from dataclasses import dataclass
 from typing import Optional
 
@@ -44,14 +46,14 @@ CLASSES: dict[str, PlayerClass] = {
         name="Mystique",
         bonus_stats=Stats(attack=40, luck=10),
         bonus_sp_max=20,
-        class_attack=Attack("Rayon mystique", cost=20),
+        class_attack=Attack("Rayon mystique", cost=20, variance=10),
     ),
     "vagabond": PlayerClass(
         name="Vagabond",
-        bonus_stats=Stats(luck=10),
-        bonus_hp_max=15,
-        bonus_sp_max=25,
-        class_attack=Attack("Frappe agile", cost=10, crit_multiplier=3),
+        bonus_stats=Stats(luck=20),
+        bonus_hp_max=10,
+        bonus_sp_max=20,
+        class_attack=Attack("Frappe agile", cost=10, crit_multiplier=3, variance=10),
     ),
     "arpenteur": PlayerClass(
         name="Arpenteur",
@@ -64,6 +66,6 @@ CLASSES: dict[str, PlayerClass] = {
         name="Sentinelle",
         bonus_stats=Stats(defense=40),
         bonus_hp_max=10,
-        class_attack=Attack("Mur écrasant", cost=20),
+        class_attack=Attack("Mur écrasant", cost=20, variance=0),
     ),
 }

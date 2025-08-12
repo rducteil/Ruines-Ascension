@@ -1,15 +1,33 @@
 from __future__ import annotations
-from typing import Optional, Literal
+"""Player : entité jouable.
+
+- Hérite de Entity.
+- Gère les slots d'équipement (weapon/armor/artifact) via equip/unequip.
+- Applique les bonus de PlayerClass à l'init.
+- Aucune I/O ici (compatible console & PyGame).
+"""
+
+from typing import Optional, TYPE_CHECKING, Literal
+
 from core.entity import Entity
 from core.stats import Stats
-from core.resource import Resource
-from core.player_class import CLASSES, PlayerClass
-from core.equipment import Equipment
-from core.settings import BASE_PLAYER
+from core.settings import *
+from core.player_class import CLASSES, PlayerClass  # registre et type de classe joueur
+
+if TYPE_CHECKING:
+    from core.equipment import Equipment
+    from core.weapon import Weapon
+    from core.armor import Armor
+    from core.artifact import Artifact
+    from core.attack import Attack
 
 class Player(Entity):
-    def __init__(self, name: str, player_class_key: str,base_stats: Stats, base_hp_max: int,
-        base_sp_max: int) :
+    def __init__(self, 
+                 name: str, 
+                 player_class_key: str, 
+                 base_stats: Stats, 
+                 base_hp_max: int,
+                 base_sp_max: int) :
         super().__init__(name=name, base_stats=base_stats, base_hp_max=base_hp_max, base_sp_max=base_sp_max)
 
         # Equipment slots (optional at start)

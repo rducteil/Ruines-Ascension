@@ -10,7 +10,11 @@ def clamp(n, min, max):
     else:
         return n
     
-def apply_resource_mods(entity: Entity, base_hp_max: int, base_sp_max: int, mods: Iterable[ResourceModifier], preserve_ratio: bool = True):
+def apply_resource_mods(entity: Entity, 
+                        base_hp_max: int, 
+                        base_sp_max: int, 
+                        mods: Iterable[ResourceModifier], 
+                        preserve_ratio: bool = True):
     hp_pct = sum(m.hp_max_pct for m in mods)
     hp_flat = sum(m.hp_max_flat for m in mods)
     sp_pct = sum(m.sp_max_pct for m in mods)

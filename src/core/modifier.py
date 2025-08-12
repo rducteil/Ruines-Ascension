@@ -1,3 +1,9 @@
+from __future__ import annotations
+"""Modifs: 
+- ResourceModifier (HP/SP max: flat + %)
+- StatPercentMod (ATK/DEF % appliqués à la volée par le moteur)
+"""
+
 from dataclasses import dataclass
 
 @dataclass

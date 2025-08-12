@@ -1,9 +1,27 @@
+from __future__ import annotations
+"""Entity de base: stats + ressources + API métier (dégâts, soins, SP).
+
+- Pas d'I/O ici.
+- Dépend de: core.stats, core.resource
+"""
+
+from typing import TYPE_CHECKING
+
 from core.stats import Stats
 from core.settings import *
 from core.resource import Resource
 
+if TYPE_CHECKING:
+    from core.weapon import Weapon
+    from core.armor import Armor
+    from core.artifact import Artifact
+
 class Entity:
-    def __init__(self, name: str, base_stats: Stats, base_hp_max: int, base_sp_max: int):
+    def __init__(self, 
+                 name: str, 
+                 base_stats: Stats, 
+                 base_hp_max: int, 
+                 base_sp_max: int):
         self.name = name
         self.base_stats = base_stats
         self.hp_res = Resource(current=base_hp_max, maximum=base_hp_max)

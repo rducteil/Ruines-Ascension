@@ -1,8 +1,16 @@
 from __future__ import annotations
+"""Moteur de combat (agnostique de l'I/O). Gère SP, dégâts, crit, usure."""
+
+from __future__ import annotations
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any, Callable, Protocol
+from typing import Optional, List, Dict, Any, Callable, Protocol, TYPE_CHECKING
 import random
-from core.entity import Entity
+from core.utils  import clamp
+from core.effects import Effect 
+if TYPE_CHECKING:
+    from core.attack import Attack
+    from core.entity import Entity
+from core.combat_types import CombatContext, CombatEvent, CombatResult
 
 # ---- Protocols facultatifs (pour aider le typage sans import circulaire) ----
 
@@ -10,43 +18,13 @@ class StatPercentMod(Protocol):
     attack_pct: float
     defense_pct: float
 
-class HasStatPercentMod(Protocol):
-    def stat_percent_mod(self) -> StatPercentMod: ...
-
 class AttackLike(Protocol):
     name: str
     base_damage: int
     variance: int
     cost: int
-    # optionnel
     crit_multiplier: float
-
-# ---- Événements retournés par le moteur ----
-
-@dataclass
-class CombatEvent:
-    """Un message d'événement + tag et data optionnelles pour l'UI."""
-    text: str
-    tag: Optional[str] = None
-    data: Optional[Dict[str, Any]] = None
-
-@dataclass
-class CombatResult:
-    """Résultat d'une résolution d'attaque (un tour)."""
-    events: List[CombatEvent]
-    attacker_alive: bool
-    defender_alive: bool
-    damage_dealt: int
-    was_crit: bool
-
-@dataclass
-class CombatContext:
-    """Contexte minimal passé aux hooks d'équipement/effets."""
-    attacker: "Entity"
-    defender: "Entity"
-    events: List[CombatEvent]
-    damage_dealt: int = 0
-    was_crit: bool = False
+    effect : Effect
 
 
 # ---- Moteur ----
@@ -54,28 +32,26 @@ class CombatContext:
 class CombatEngine:
     """Résout une attaque: coût SP, dégâts, critique, usure, événements."""
 
-    def __init__(
-        self,
-        *,
-        seed: Optional[int] = None,
-        crit_chance_from_luck: Optional[Callable[[int], float]] = None,
-        base_crit_multiplier: float = 2.0,  # règle projet: x2 par défaut
-    ) -> None:
+    def __init__(self, 
+                 *, 
+                 seed: Optional[int] = None, 
+                 crit_chance_from_luck: Optional[Callable[[int], float]] = None, 
+                 base_crit_multiplier: float = 2.0):
         self.rng = random.Random(seed)
         self._crit_func = crit_chance_from_luck or self._default_crit_from_luck
         self._base_crit_mult = float(base_crit_multiplier)
 
     # TODO: brancher ici effets de statut, esquive/parade si tu en ajoutes
 
-    def resolve_turn(self, attacker: "Entity", defender: "Entity", attack: AttackLike) -> CombatResult:
+    def resolve_turn(self, attacker: "Entity", defender: "Entity", attack: Attack) -> CombatResult:
         events: List[CombatEvent] = []
         ctx = CombatContext(attacker=attacker, defender=defender, events=events)
 
         # 1) Coût en SP (si non payé -> pas d'attaque)
-        cost = getattr(attack, "cost", 0) or getattr(attack, "stamina_cost", 0)
+        cost = attack.cost
         if cost and not attacker.spend_sp(cost):
             events.append(CombatEvent(
-                text=f"{attacker.name} n'a pas assez d'endurance pour {getattr(attack, 'name', 'cette attaque')}.",
+                text=f"{attacker.name} n'a pas assez d'endurance pour {attack.name}.",
                 tag="not_enough_sp",
                 data={"cost": cost},
             ))
@@ -83,14 +59,16 @@ class CombatEngine:
                                 damage_dealt=0, was_crit=False)
 
         # 2) Jet de variance & calcul des stats effectives (plats + %)
-        base_damage = int(getattr(attack, "base_damage", 0))
-        variance = int(getattr(attack, "variance", 0))
+        base_damage = int(attack.base_damage)
+        variance = int(attack.variance)
         delta = self.rng.randint(-variance, variance) if variance > 0 else 0
 
         eff_atk = self._effective_attack(attacker)
         eff_def = self._effective_defense(defender)
+        eff_def = int(round(eff_def * (1.0 - attack.ignore_defense_pct)))
 
         raw = max(0, base_damage + delta + eff_atk - eff_def)
+        raw += attack.true_damage
 
         # 3) Critique éventuel (basé sur luck)
         was_crit = self._roll_crit(attacker.base_stats.luck)
@@ -103,7 +81,7 @@ class CombatEngine:
         ctx.was_crit = was_crit
 
         if dealt > 0:
-            msg = f"{attacker.name} utilise {getattr(attack, 'name', 'une attaque')} et inflige {dealt} PV."
+            msg = f"{attacker.name} utilise {attack.name} et inflige {dealt} PV."
             if was_crit:
                 msg += " (Coup critique !)"
             events.append(CombatEvent(text=msg, tag="damage", data={"amount": dealt, "crit": was_crit}))
@@ -141,39 +119,22 @@ class CombatEngine:
         pct = self._gather_pct(entity, which="defense")
         return int(round(base * (1.0 + pct)))
 
-    def _gather_pct(self, entity: "Entity", which: str) -> float:
-        """Additionne les pourcentages fournis par les items équipés (ordre-indépendant)."""
-        total = 0.0
-        for slot in ("weapon", "armor", "artifact"):
-            item = getattr(entity, slot, None)
-            if item is None:
-                continue
-            # Désactivé si cassé: Equipment gère bonuses_active/is_broken
-            if hasattr(item, "stat_percent_mod"):
-                mod = item.stat_percent_mod()
-                if mod is None:
-                    continue
-                if which == "attack" and hasattr(mod, "attack_pct"):
-                    total += float(mod.attack_pct)
-                elif which == "defense" and hasattr(mod, "defense_pct"):
-                    total += float(mod.defense_pct)
-        return total
+    def _gather_pct(self, entity: Entity, which: str) -> float:
+        art = getattr(entity, "artifact", None)
+        if not art or not hasattr(art, "stat_percent_mod"):
+            return 0.0
+        mod : StatPercentMod = art.stat_percent_mod()
+        return float(getattr(mod, f"{which}_pct", 0.0))
 
     # ---------- Critique ----------
 
     def _roll_crit(self, luck: int) -> bool:
         """Renvoie True si critique (formule configurable)."""
-        p = max(0.0, min(1.0, float(self._crit_func(int(luck)))))
+        p = clamp(float(self._crit_func(int(luck))), 0.0, 1.0)
         return self.rng.random() < p
 
     def _default_crit_from_luck(self, luck: int) -> float:
-        """Formule par défaut (décroissance géométrique) : p = 1 - 0.99**luck.
-        - 0 luck  -> 0%
-        - 10 luck -> ~9.6%
-        - 50 luck -> ~39.5%
-        Remplace-la en passant crit_chance_from_luck=... au constructeur si tu veux autre chose.
-        """
-        return 1.0 - (0.99 ** max(0, luck))
+        return (1.0 - (0.98 ** max(0, luck))) / 0.8673804
 
     def _crit_multiplier(self, entity: "Entity", attack: AttackLike) -> float:
         """x2 par défaut, surcharge possible par l'attaque ou l'équipement."""

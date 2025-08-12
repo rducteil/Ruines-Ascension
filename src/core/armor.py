@@ -1,13 +1,20 @@
 from __future__ import annotations
+"""Armor: bonus plats (DEF), usure quand on encaisse des dégâts."""
 
+from typing import TYPE_CHECKING
 from core.equipment import Equipment
-from core.entity import Entity
+if TYPE_CHECKING:
+    from core.entity import Entity
 
 
 class Armor(Equipment):
     """An armor piece that grants a flat defense bonus."""
 
-    def __init__(self, name: str, durability_max: int, bonus_defense: int = 0, description: str = "") -> None:
+    def __init__(self, 
+                 name: str, 
+                 durability_max: int, 
+                 bonus_defense: int = 0, 
+                 description: str = "") -> None:
         super().__init__(name=name, durability_max=durability_max, description=description)
         self.bonus_defense: int = int(bonus_defense)
 

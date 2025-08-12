@@ -1,25 +1,22 @@
-import time
+# main.py
+from core.stats import Stats
 from core.player import Player
-from ui.console_ui import (
-    show_welcome,
-    ask_player_name,
-    choose_class,
-    show_stats
-)
-from game.game_loop import start_game
-
+from game.game_loop import GameLoop
+from ui.console_io import ConsoleIO
 
 def main():
-    show_welcome()
+    # Crée un joueur (exemple)
+    p = Player(
+        name="Moi",
+        player_class_key="guerrier",
+        base_stats=Stats(attack=10, defense=10, luck=5),
+        base_hp_max=50,
+        base_sp_max=20,
+    )
 
-    name = ask_player_name()
-    class_name = choose_class()
-
-    player = Player(name, class_name)
-    show_stats(player, "🔰 Statistiques initiales")
-
-    start_game(player)
-
+    io = ConsoleIO()
+    loop = GameLoop(player=p, io=io, seed=42)
+    loop.run()
 
 if __name__ == "__main__":
     main()
