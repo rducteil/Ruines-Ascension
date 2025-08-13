@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from core.equipment import Equipment
 if TYPE_CHECKING:
     from core.entity import Entity
+    from core.combat_types import CombatContext
 
 
 class Armor(Equipment):
@@ -26,6 +27,6 @@ class Armor(Equipment):
         entity.base_stats.defense -= self.bonus_defense
 
     # --- hooks called by the combat engine ---
-    def on_after_hit(self, ctx, damage_taken: int) -> None:
+    def on_after_hit(self, ctx: CombatContext, damage_taken: int) -> None:
         wear = max(1, damage_taken // 10)
         self.degrade(wear)

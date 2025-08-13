@@ -2,16 +2,16 @@ from __future__ import annotations
 """Attack: description déclarative (dégâts de base, variance, coût, effets)."""
 
 from dataclasses import dataclass, field
-from typing import List, Optional
-from core.effects import Effect  # persistant (poison, buff...)
+from typing import List
+from core.effects import Effect 
 
 @dataclass
 class Attack:
     name: str
     base_damage: int = 0
-    variance: int = 0
-    cost: int = 0
-    crit_multiplier: float = 2.0
+    variance: int = 0               # delta tiré dans [-variance, +variance]
+    cost: int = 0                   # coût en SP
+    crit_multiplier: float = 2.0    # x2 par défaut (peut varier en fonction de l'attaque)
     effects: List[Effect] = field(default_factory=list)
 
     # Modifs de calcul (optionnelles)

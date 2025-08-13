@@ -2,8 +2,9 @@ from __future__ import annotations
 """Types neutres pour le combat: événements, contexte, résultat."""
 
 from dataclasses import dataclass
-from typing import Optional, Dict, Any, List
-from core.entity import Entity
+from typing import Optional, Dict, Any, List, TYPE_CHECKING
+if TYPE_CHECKING:
+    from core.entity import Entity
 
 @dataclass
 class CombatEvent:

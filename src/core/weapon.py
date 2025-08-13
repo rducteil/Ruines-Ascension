@@ -6,6 +6,7 @@ from core.equipment import Equipment
 from core.attack import Attack
 if TYPE_CHECKING:
     from core.entity import Entity
+    from core.combat_types import CombatContext
 
 class Weapon(Equipment):
     """A weapon that grants a flat attack bonus and (optionally) special attacks."""
@@ -30,7 +31,7 @@ class Weapon(Equipment):
         entity.base_stats.attack -= self.bonus_attack
 
     # --- hooks called by the combat engine ---
-    def on_after_attack(self, ctx) -> None:
+    def on_after_attack(self, ctx: "CombatContext") -> None:
         self.degrade(1)
 
     # --- convenience ---

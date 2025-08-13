@@ -32,14 +32,12 @@ class AttackLike(Protocol):
 class CombatEngine:
     """Résout une attaque: coût SP, dégâts, critique, usure, événements."""
 
-    def __init__(self, 
-                 *, 
-                 seed: Optional[int] = None, 
-                 crit_chance_from_luck: Optional[Callable[[int], float]] = None, 
-                 base_crit_multiplier: float = 2.0):
+    def __init__(
+            self, 
+            *, 
+            seed: Optional[int] = None, 
+            ):
         self.rng = random.Random(seed)
-        self._crit_func = crit_chance_from_luck or self._default_crit_from_luck
-        self._base_crit_mult = float(base_crit_multiplier)
 
     # TODO: brancher ici effets de statut, esquive/parade si tu en ajoutes
 

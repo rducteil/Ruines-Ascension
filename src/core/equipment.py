@@ -4,23 +4,19 @@ from __future__ import annotations
 - Règle: à 0, l'objet reste équipé mais bonus désactivés.
 """
 
+from dataclasses import dataclass
 from typing import Optional, TYPE_CHECKING
 from core.resource import Resource
 if TYPE_CHECKING:
     from core.entity import Entity
 
-
+@dataclass
 class Equipment:
-    def __init__(self, 
-                 name: str, 
-                 durability_max: int, 
-                 description: str = "") -> None:
-        self.name: str = name
-        self.description: str = description
-        self.durability = Resource(current=durability_max, maximum=durability_max)
-
-        self._holder: Optional["Entity"] = None    # porteur courant (Player/Enemy)
-        self._bonuses_applied: bool = False        # bonus actifs (si équipé et non cassé)
+    name: str
+    durability: Resource
+    description: str = ""
+    _holder: Optional[Entity]
+    _bonuses_applied: bool
 
     # --- état ---
     def is_broken(self) -> bool:
