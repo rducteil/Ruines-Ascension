@@ -2,63 +2,91 @@ from __future__ import annotations
 """Effets persistants (poison, buffs). Sans I/O, hooks on_hit / on_turn_end."""
 
 from dataclasses import dataclass
-from typing import Optional, List, TYPE_CHECKING
+from typing import Optional, List, Literal, TYPE_CHECKING
+
 from core.combat import CombatContext, CombatEvent
 if TYPE_CHECKING:
     from core.entity import Entity
 
+TargetSide = Literal["self", "target"]
 
+@dataclass
 class Effect:
-    """Effet persistant appliqué sur une entité (durée en tours)."""
-    def __init__(self, 
-                 name: str, 
-                 duration: int, 
-                 potency: int) -> None:
-        self.name = name
-        self.duration = int(duration)
-        self.potency = int(potency)
+    """Effet générique.
 
-    # Appliqué au moment où l'attaque TOUCHE (ex.: poser un poison sur la cible)
+    - name: identifiant lisible
+    - duration: nombre de TICKS restants (tours). 0 => expire tout de suite
+    - potency: intensité (ex: dégâts par tick, bonus de stat)
+    - target: 'target' => applique l'effet à l'adversaire touché ; 'self' => à l'attaquant
+
+    Cycle de vie:
+    - on_hit(ctx): appelé quand l'attaque touche (immédiat)
+    - on_apply(target, ctx): appelé quand l'effet est enregistré sur 'target'
+    - on_turn_end(ctx_for_target): appelé à la fin du tour du porteur
+    - on_expire(target, ctx): appelé à l'expiration
+    """
+    name: str
+    duration: int
+    potency: int
+    target: TargetSide = "target"
+
+    # --- Hooks overridables ---
     def on_hit(self, ctx: CombatContext) -> None:
         pass
 
-    # Appelé à la FIN de chaque tour (pour chaque entité qui a l'effet)
+    def on_apply(self, target: "Entity", ctx: CombatContext):
+        '''Appelé lors de l'enregistrement sur "target"'''
+        pass
+
     def on_turn_end(self, ctx: CombatContext) -> None:
+        '''Agit à la fin du tour du porteur'''
         pass
 
     def is_expired(self) -> bool:
         return self.duration <= 0
+    
+    def on_expire(self, target: "Entity", ctx: CombatContext):
+        '''Retire les effets réversibles'''
+        pass
 
+    # --- Utilitaire ---
     def tick(self) -> None:
-        """Diminue la durée (à appeler en fin de tour côté boucle de jeu)."""
         self.duration -= 1
 
 # --- Liste d'effets ---
 
 class PoisonEffect(Effect):
-    """Inflige `potency` dégâts à la fin du tour tant que l'effet est actif."""
+    def __init__(self, name: str, duration: int, potensy: int):
+        super().__init__(name=name, duration=duration, potency=potensy, target="target")
+    
     def on_turn_end(self, ctx: CombatContext) -> None:
         if self.is_expired():
             return
-        taken = ctx.defender.take_damage(self.potency)
-        ctx.events.append(type("CE", (), {})(
-            text=f"{ctx.defender.name} subit {taken} dégâts de poison.",
-            tag="poison_tick", data={"amount": taken}
+        
+        # Ici : ctx.attacker == porteur (cible qui a l'effet)
+        taken = ctx.attacker.take_damage(self.potency)
+        ctx.events.append(CombatEvent(
+            text=f"{ctx.attacker.name} subit {taken} dégats de poison.",
+            tag="poison_tick",
+            data={"amount": taken}
         ))
         self.tick()
 
 class AttackBuffEffect(Effect):
-    """Buff temporaire sur l'ATTAQUANT : +potency ATTACK pendant `duration` tours."""
-    def on_apply(self, target: Entity, ctx: CombatContext):
+    def __init__(self, name: str, duration: int, potency: int):
+        super().__init__(name=name, duration=duration, potency=potency, target="self")
+
+    def on_apply(self, target, ctx: CombatContext) -> None:
         target.base_stats.attack += self.potency
-        ctx.events.append(CombatEvent(f"{target.name} gagne +{self.potency} ATK", tag="base_attack"))
-    def on_hit(self, ctx: CombatContext) -> None:
-        # Appliquer immédiatement le buff côté attaquant (exemple plat)
-        ctx.attacker.base_stats.attack += self.potency
-        ctx.events.append(type("CE", (), {})(
-            text=f"{ctx.attacker.name} est galvanisé (+{self.potency} ATK).",
-            tag="buff_attack", data={"amount": self.potency}
+        ctx.events.append(CombatEvent(
+            text=f"{target.name} gagne +{self.potency} ATK.",
+            tag="buff_attack_apply",
+            data={"amount": self.potency},
         ))
-    def on_expire(self, target: Entity, ctx: CombatContext):
+
+    def on_expire(self, target, ctx: CombatContext) -> None:
         target.base_stats.attack -= self.potency
-        ctx.events.append(CombatEvent(f"Le buff d'attaque sur {target.name} expire.", tag="buff_expire"))
+        ctx.events.append(CombatEvent(
+            text=f"Le buff d'attaque de {target.name} expire.",
+            tag="buff_attack_expire",
+        ))
