@@ -25,7 +25,7 @@ CLASSES: dict[str, PlayerClass] = {
             name="Rayon mystique", 
             base_damage=10,
             variance=6,
-            cost=16,
+            cost=18,
             true_damage=5
         ),
     ),
@@ -38,7 +38,7 @@ CLASSES: dict[str, PlayerClass] = {
             name="Apogée Fatale", 
             base_damage=10,
             variance=5,
-            cost=10, 
+            cost=12, 
             crit_multiplier=3
         ),
     ),
