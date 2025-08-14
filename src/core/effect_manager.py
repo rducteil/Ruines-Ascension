@@ -1,12 +1,20 @@
 from __future__ import annotations
+"""Gestionnaire d'effets persistants (sans modifier Entity).
+
+- Mappe chaque entité vers une liste d'effets actifs.
+- Appelle les hooks aux bons moments: on_apply, on_turn_end, on_expire.
+- Copie défensive des effets appliqués pour éviter le partage d'instances.
+"""
+
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 from weakref import WeakKeyDictionary
 import copy
 
 from core.effects import CombatContext, CombatEvent
 from core.effects import Effect
-from core.entity import Entity
+if TYPE_CHECKING:
+    from core.entity import Entity
 
 @dataclass
 class EffectInstance:
@@ -18,7 +26,7 @@ class EffectManager:
     '''Enregistre, applique et purge les effets par entité'''
 
     def __init__(self):
-        self._active = WeakKeyDictionary()
+        self._active: WeakKeyDictionary[object, List[EffectInstance]] = WeakKeyDictionary()
     
 
     # --- Query ---
@@ -27,10 +35,10 @@ class EffectManager:
     
     # --- Apply / Remove ---
     def apply(self, target: Entity, effect: Effect, *, source_name: Optional[str] = None, ctx: Optional[CombatContext] = None):
-        '''Ajoute un effet à la cible (copie défensive). Appelle optionnellement on_apply s'il existe.'''
+        '''Ajoute une copie de l'effet à la cible. Appelle optionnellement on_apply s'il existe.'''
         inst = EffectInstance(effect=copy.deepcopy(effect), source_name=source_name)
         self._active.setdefault(target, []).append(inst)
-        if hasattr(inst.effect, "on_apply") and ctx is not None:
+        if ctx is not None:
             inst.effect.on_apply(target, ctx)
 
     def purge_expired(self, target: Entity, ctx: Optional[CombatContext] = None):
@@ -38,8 +46,8 @@ class EffectManager:
         lst = self._active.get(target, [])
         keep: List[EffectInstance] = []
         for inst in lst:
-            if getattr(inst.effect, "is_expired", lambda: False)():
-                if hasattr(inst.effect, "on_expire") and ctx is not None:
+            if inst.effect.is_expired():
+                if ctx is not None:
                     inst.effect.on_expire(target, ctx)
             else:
                 keep.append(inst)
@@ -50,7 +58,10 @@ class EffectManager:
     
     # --- Ticks ---
     def on_turn_end(self, target: Entity, ctx: CombatContext):
-        '''Faire agir les effets à la fin u tour et décrémente leur durée'''
+        '''Faire agir les effets à la fin de SON tour et décrémente leur durée
+        
+        Convention: ctx.attacker == target (porteur), ctx.defender == opposant
+        '''
         for inst in list(self._active.get(target, [])):
             inst.effect.on_turn_end(ctx)
         self.purge_expired(target, ctx)

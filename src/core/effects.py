@@ -1,10 +1,20 @@
 from __future__ import annotations
-"""Effets persistants (poison, buffs). Sans I/O, hooks on_hit / on_turn_end."""
+"""Effets persistants (poison, buffs) — sans I/O.
+
+- Les effets sont *déclaratifs*. Le GameLoop/EffectManager orchestre leur durée.
+- On évite toute dépendance forte : uniquement des types neutres (CombatContext/Event).
+- Convention d'appel :
+  * on_apply(target, ctx)  -> appelé quand l'effet est appliqué à une entité
+  * on_hit(ctx)            -> appelé si l'effet est attaché à une attaque qui touche
+  * on_turn_end(ctx)       -> appelé à la fin du tour du *porteur* de l'effet
+  * on_expire(target, ctx) -> appelé quand l'effet expire (durée atteinte)
+"""
 
 from dataclasses import dataclass
 from typing import Optional, List, Literal, TYPE_CHECKING
 
 from core.combat import CombatContext, CombatEvent
+
 if TYPE_CHECKING:
     from core.entity import Entity
 
@@ -12,18 +22,12 @@ TargetSide = Literal["self", "target"]
 
 @dataclass
 class Effect:
-    """Effet générique.
+    """Base d'effet persistant.
 
-    - name: identifiant lisible
-    - duration: nombre de TICKS restants (tours). 0 => expire tout de suite
-    - potency: intensité (ex: dégâts par tick, bonus de stat)
-    - target: 'target' => applique l'effet à l'adversaire touché ; 'self' => à l'attaquant
-
-    Cycle de vie:
-    - on_hit(ctx): appelé quand l'attaque touche (immédiat)
-    - on_apply(target, ctx): appelé quand l'effet est enregistré sur 'target'
-    - on_turn_end(ctx_for_target): appelé à la fin du tour du porteur
-    - on_expire(target, ctx): appelé à l'expiration
+    Args:
+        name: nom affichable (log/UX)
+        duration: nombre de *fins de tour* restant (0 => expire immédiatement)
+        potency: intensité (interprétation spécifique à l'effet)
     """
     name: str
     duration: int
@@ -56,8 +60,8 @@ class Effect:
 # --- Liste d'effets ---
 
 class PoisonEffect(Effect):
-    def __init__(self, name: str, duration: int, potensy: int):
-        super().__init__(name=name, duration=duration, potency=potensy, target="target")
+    def __init__(self, name: str, duration: int, potency: int):
+        super().__init__(name=name, duration=duration, potency=potency, target="target")
     
     def on_turn_end(self, ctx: CombatContext) -> None:
         if self.is_expired():

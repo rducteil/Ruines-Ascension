@@ -14,7 +14,9 @@ from core.player import Player
 from core.enemy import Enemy
 from core.stats import Stats
 from core.attack import Attack
-from core.combat import CombatEngine, CombatResult
+from core.combat import CombatEngine
+from core.combat_types import CombatResult, CombatContext
+from core.effect_manager import EffectManager
 
 
 # =========================
@@ -95,6 +97,7 @@ class GameLoop:
         self.player = player
         self.io = io
         self.rng = random.Random(seed)
+        self.effects = EffectManager()
         self.engine = CombatEngine(seed=seed)  # CombatEngine gère crits, usure, etc.
         self.running = True
 
@@ -206,20 +209,30 @@ class GameLoop:
             # Tour du joueur
             p_attack = self._select_player_attack(enemy)
             res_p = self.engine.resolve_turn(self.player, enemy, p_attack)
+            # On gère les effets player
+            self._apply_attack_effects(attacker=self.player, defender=enemy, attack=p_attack, result=res_p)
+            # On gère l'affichage I/O
             if self.io:
                 self.io.present_events(res_p)
                 self.io.show_status(self.player, enemy)
             if not res_p.defender_alive or self.player.hp <= 0:
                 break
+            # Fin du tour du joueur; tick les effets
+            self._tick_end_of_turn(attacker=self.player, defender=enemy)
 
             # Tour de l'ennemi
             e_attack = self._select_enemy_attack(enemy)
             res_e = self.engine.resolve_turn(enemy, self.player, e_attack)
+            # On gère les effets enemies
+            self._apply_attack_effects(attacker=enemy, defender=self.player, attack=e_attack, result=res_e)
+            # On gère l'affichage I/O
             if self.io:
                 self.io.present_events(res_e)
                 self.io.show_status(self.player, enemy)
             if not res_e.defender_alive or self.player.hp <= 0:
                 break
+            # Fin du tour de l'enemie; tick les effets
+            self._tick_end_of_turn(attacker=enemy, defender=self.player)
 
         if self.io:
             self.io.on_battle_end(self.player, enemy, victory=(self.player.hp > 0 and enemy.hp <= 0))
@@ -238,6 +251,30 @@ class GameLoop:
     def _select_enemy_attack(self, enemy: Enemy) -> Attack:
         # TODO: brancher une vraie IA (enemy.choose_action)
         return Attack(name="Griffe", base_damage=4, variance=1, cost=0)
+    
+    def _apply_attack_effects(self, attacker, defender, attack: Attack, result: CombatResult):
+        """Applique les effets listés sur `attack` si l'attaque a touché.
+
+        - on_hit(ctx) est appelé pour des effets *immédiats* (ex.: dégâts bonus).
+        - Si l'effet a une `duration` > 0, on l'enregistre pour des ticks futurs.
+        """
+        if self.effects is None or result.damage_dealt <= 0:
+            return
+        events = result.events
+        ctx = CombatContext(attacker=attacker, defender=defender, events=events, damage_dealt=result.damage_dealt, was_crit=result.was_crit)
+        for eff in getattr(attack, "effects", []):
+            eff.on_hit(ctx)
+            if getattr(eff, "duration", 0) > 0:
+                self.effects.apply(defender, eff, source_name=attack.name, ctx=ctx)
+        
+    def _tick_end_of_turn(self, attacker, defender):
+        if self.effects is None:
+            return
+        events: list[CombatContext] = []
+        ctx = CombatContext(attacker=attacker, defender=defender, events=events)
+        self.effects.on_turn_end(attacker, ctx)
+        if self.io and events:
+            self.io.present_events(CombatResult(events=events, attacker_alive=True, defender_alive=True, damage_dealt=0, was_crit=False))
 
     # --------------------------
     # Événements / Ravitaillement
