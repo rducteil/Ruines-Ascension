@@ -1,4 +1,3 @@
-# main.py
 from core.stats import Stats
 from core.player import Player
 from game.game_loop import GameLoop

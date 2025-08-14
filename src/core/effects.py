@@ -94,3 +94,41 @@ class AttackBuffEffect(Effect):
             text=f"Le buff d'attaque de {target.name} expire.",
             tag="buff_attack_expire",
         ))
+    
+class DefenseBuffEffect(Effect):
+    def __init__(self, name: str, duration: int, potency: int):
+        super().__init__(name=name, duration=duration, potency=potency, target="self")
+
+    def on_apply(self, target, ctx: CombatContext) -> None:
+        target.base_stats.defense += self.potency
+        ctx.events.append(CombatEvent(
+            text=f"{target.name} gagne +{self.potency} DEF.",
+            tag="buff_defense_apply",
+            data={"amount": self.potency},
+        ))
+
+    def on_expire(self, target, ctx: CombatContext) -> None:
+        target.base_stats.defense -= self.potency
+        ctx.events.append(CombatEvent(
+            text=f"Le buff de défense de {target.name} expire.",
+            tag="buff_defense_expire",
+        ))
+
+class LuckBuffEffect(Effect):
+    def __init__(self, name: str, duration: int, potency: int):
+        super().__init__(name=name, duration=duration, potency=potency, target="self")
+
+    def on_apply(self, target, ctx: CombatContext) -> None:
+        target.base_stats.luck += self.potency
+        ctx.events.append(CombatEvent(
+            text=f"{target.name} gagne +{self.potency} LCK.",
+            tag="buff_luck_apply",
+            data={"amount": self.potency},
+        ))
+
+    def on_expire(self, target, ctx: CombatContext) -> None:
+        target.base_stats.luck -= self.potency
+        ctx.events.append(CombatEvent(
+            text=f"Le buff de chance de {target.name} expire.",
+            tag="buff_luck_expire",
+        ))

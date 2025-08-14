@@ -34,36 +34,42 @@ class ConsoleIO:
         msg = f"Victoire ! {enemy.name} est vaincu." if victory else f"Défaite… {player.name} tombe au combat."
         print(msg)
 
-    def choose_player_attack(self, player: Player, enemy: Enemy) -> Attack:
+    def choose_player_attack(self, player: Player, enemy: Enemy, options=None) -> Attack:
         """Menu simple: attaques d’arme spéciales + éventuelle attaque de classe + attaque basique."""
-        options: List[Attack] = []
+        if options is None:
+            options: List[Attack] = []
 
-        # 1) attaques spéciales de l'arme si dispo
-        weapon = getattr(player, "weapon", None)
-        if weapon and hasattr(weapon, "get_available_attacks"):
-            specials = weapon.get_available_attacks()  # type: ignore[attr-defined]
-            if specials:
-                options.extend(specials)
+            # 1) attaques spéciales de l'arme si dispo
+            weapon = getattr(player, "weapon", None)
+            if weapon and hasattr(weapon, "get_available_attacks"):
+                specials = weapon.get_available_attacks()  # type: ignore[attr-defined]
+                if specials:
+                    options.extend(specials)
 
-        # 2) attaque de classe si dispo
-        class_attack = getattr(player, "class_attack", None)
-        if class_attack:
-            options.append(class_attack)
+            # 2) attaque de classe si dispo
+            class_attack = getattr(player, "class_attack", None)
+            if class_attack:
+                options.append(class_attack)
 
-        # 3) attaque basique par défaut (toujours disponible)
-        basic = Attack(name="Attaque basique", base_damage=5, variance=2, cost=0)
-        options.append(basic)
+            # 3) attaque basique par défaut (toujours disponible)
+            basic = Attack(name="Attaque basique", base_damage=5, variance=2, cost=0)
+            options.append(basic)
 
-        # Affichage menu
-        print("\nChoisis une attaque :")
-        for idx, atk in enumerate(options, start=1):
-            cost = getattr(atk, "cost", 0)
-            dmg = getattr(atk, "base_damage", 0)
-            var = getattr(atk, "variance", 0)
-            print(f"  {idx}) {atk.name}  (Dmg {dmg}±{var}, Cost SP {cost})")
+            # Affichage menu
+            print("\nChoisis une attaque :")
+            for idx, atk in enumerate(options, start=1):
+                cost = getattr(atk, "cost", 0)
+                dmg = getattr(atk, "base_damage", 0)
+                var = getattr(atk, "variance", 0)
+                print(f"  {idx}) {atk.name}  (Dmg {dmg}±{var}, Cost SP {cost})")
 
-        choice = self._ask_index(len(options))
-        return options[choice]
+            choice = self._ask_index(len(options))
+            return options[choice]
+        print("\nChoisis une action : ")
+        for i, atk in enumerate(options, 1):
+            print(f"    {i}) {atk.name} (Dmg {atk.base_damage}±{atk.variance}, SP {atk.cost})")
+        idx = self._ask_index(len(options))
+        return options[idx]
 
     # ---------- Zones / Sections ----------
 

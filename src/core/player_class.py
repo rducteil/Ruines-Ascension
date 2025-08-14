@@ -33,39 +33,3 @@ class PlayerClass:
         if self.class_attack is not None:
             setattr(player, "class_attack", self.class_attack)
 
-
-# --- Registry ---
-CLASSES: dict[str, PlayerClass] = {
-    "guerrier": PlayerClass(
-        name="Guerrier",
-        bonus_stats=Stats(attack=25, defense=10),
-        bonus_hp_max=15,
-        class_attack=Attack("Coup de taille", cost=5),
-    ),
-    "mystique": PlayerClass(
-        name="Mystique",
-        bonus_stats=Stats(attack=40, luck=10),
-        bonus_sp_max=20,
-        class_attack=Attack("Rayon mystique", cost=20, variance=10),
-    ),
-    "vagabond": PlayerClass(
-        name="Vagabond",
-        bonus_stats=Stats(luck=20),
-        bonus_hp_max=10,
-        bonus_sp_max=20,
-        class_attack=Attack("Frappe agile", cost=10, crit_multiplier=3, variance=10),
-    ),
-    "arpenteur": PlayerClass(
-        name="Arpenteur",
-        bonus_stats=Stats(attack=15),
-        bonus_hp_max=10,
-        bonus_sp_max=25,
-        class_attack=Attack("Percée rapide", cost=10),
-    ),
-    "sentinelle": PlayerClass(
-        name="Sentinelle",
-        bonus_stats=Stats(defense=40),
-        bonus_hp_max=10,
-        class_attack=Attack("Mur écrasant", cost=20, variance=0),
-    ),
-}

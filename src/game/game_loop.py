@@ -17,6 +17,8 @@ from core.attack import Attack
 from core.combat import CombatEngine
 from core.combat_types import CombatResult, CombatContext
 from core.effect_manager import EffectManager
+from core.loadout_manager import LoadoutManager
+from content.actions import default_loadout_for_class
 
 
 # =========================
@@ -98,6 +100,12 @@ class GameLoop:
         self.io = io
         self.rng = random.Random(seed)
         self.effects = EffectManager()
+        self.loadouts = LoadoutManager
+        try:
+            class_key = getattr(self.player, "player_class_key", "guerrier")
+            self.loadouts.set(self.player, default_loadout_for_class(class_key))
+        except Exception:
+            pass
         self.engine = CombatEngine(seed=seed)  # CombatEngine gère crits, usure, etc.
         self.running = True
 
@@ -260,12 +268,13 @@ class GameLoop:
         """
         if self.effects is None or result.damage_dealt <= 0:
             return
+        target_entity = attacker if getattr(attack, "target", "enemy") == "self" else defender
         events = result.events
-        ctx = CombatContext(attacker=attacker, defender=defender, events=events, damage_dealt=result.damage_dealt, was_crit=result.was_crit)
+        ctx = CombatContext(attacker=attacker, defender=target_entity, events=events, damage_dealt=result.damage_dealt, was_crit=result.was_crit)
         for eff in getattr(attack, "effects", []):
             eff.on_hit(ctx)
             if getattr(eff, "duration", 0) > 0:
-                self.effects.apply(defender, eff, source_name=attack.name, ctx=ctx)
+                self.effects.apply(target_entity, eff, source_name=attack.name, ctx=ctx)
         
     def _tick_end_of_turn(self, attacker, defender):
         if self.effects is None:
@@ -316,5 +325,15 @@ class GameLoop:
             base_sp_max=0,
         )
 
+    def _select_player_attack(self, enemy: Enemy):
+        lo = self.loadouts.get(self.player)
+        if lo:
+            options = lo.as_list()
+            if self.io and hasattr(self.io, "choose_player_attack"):
+                # L'I/O n'affiche que ces 3 actions
+                return self.io.choose_player_attack(self.player, enemy, options=options)
+            return options[0]
+        # Fallback si pas de Loadout
+        return Attack.basic(name="Attaque", base_damage=5, variance=2, cost=0)
     def _rng_choice(self, seq: Sequence) -> any:
         return seq[self.rng.randrange(0, len(seq))]

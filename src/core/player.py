@@ -12,7 +12,8 @@ from typing import Optional, TYPE_CHECKING, Literal
 from core.entity import Entity
 from core.stats import Stats
 from core.settings import *
-from core.player_class import CLASSES, PlayerClass  # registre et type de classe joueur
+from core.player_class import PlayerClass 
+from content.player_classes import CLASSES # registre et type de classe joueur
 
 if TYPE_CHECKING:
     from core.equipment import Equipment
