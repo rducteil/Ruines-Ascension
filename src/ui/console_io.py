@@ -115,9 +115,11 @@ class ConsoleIO:
         print("  1) Se reposer")
         print("  2) Réparer (tout ce qu’on peut)")
         print("  3) Boutique")
-        print("  4) Quitter")
-        idx = self._ask_index(4)
-        return ["REST","REPAIR","SHOP","LEAVE"][idx]
+        print("  4) Sauvegarder")
+        print("  5) Charger")
+        print("  6) Quitter")
+        idx = self._ask_index(6)
+        return ["REST","REPAIR","SHOP","SAVE", "LOAD", "LEAVE"][idx]
 
     def choose_shop_purchase(self, offers: list[ShopOffer], *, wallet:Wallet):
         print(f"\nBoutique (or: {wallet.gold})")
@@ -177,3 +179,6 @@ class ConsoleIO:
             if 1 <= i <= length:
                 return i - 1
             print(f"Choisis un nombre entre 1 et {length}.")
+
+    def present_text(self, text: str) -> None:
+        print(text)

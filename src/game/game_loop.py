@@ -24,6 +24,7 @@ from core.wallet import Wallet
 from core.supply import SupplyManager
 from content.shop_offers import build_offers, REST_HP_PCT, REST_SP_PCT, REPAIR_COST_PER_POINT, ShopOffer
 from core.event_engine import EventEngine
+from core.save import save_to_file, load_from_file
 
 
 # =========================
@@ -47,6 +48,7 @@ class GameIO(Protocol):
     def choose_shop_purchase(self, offers: list[ShopOffer], *, wallet:Wallet): ...
     def choose_event_option(self, text: str, options: Sequence[str]): ...
     def choose_next_zone(self, options: Sequence["ZoneType"]) -> "ZoneType": ...
+    def present_text(self, text: str) -> None: ...
 
 
 # ================
@@ -282,7 +284,7 @@ class GameLoop:
 
     def _choose_next_zone(self, current_zone: Zone) -> ZoneType:
         """Après boss, propose 3 zones de types distincts (différents possibles du courant)."""
-        pool = [z for z in ZONE_TYPE_LIST]  # on peut autoriser la répétition du type courant si tu veux l'exclure: retire-le
+        pool = [z for z in ZONE_TYPE_LIST if z != current_zone.zone_type] or ZONE_TYPE_LIST  # on peut autoriser la répétition du type courant si tu veux l'exclure: retire-le
         # On tire 3 différents
         options = self.rng.sample(pool, k=min(3, len(pool)))
         if self.io and hasattr(self.io, "choose_next_zone"):
@@ -400,15 +402,26 @@ class GameLoop:
         - on_hit(ctx) est appelé pour des effets *immédiats* (ex.: dégâts bonus).
         - Si l'effet a une `duration` > 0, on l'enregistre pour des ticks futurs.
         """
-        if self.effects is None or result.damage_dealt <= 0:
+        if not getattr(attack, "effects", None):
             return
-        target_entity = attacker if getattr(attack, "target", "enemy") == "self" else defender
-        events = result.events
-        ctx = CombatContext(attacker=attacker, defender=target_entity, events=events, damage_dealt=result.damage_dealt, was_crit=result.was_crit)
-        for eff in getattr(attack, "effects", []):
-            eff.on_hit(ctx)
-            if getattr(eff, "duration", 0) > 0:
-                self.effects.apply(target_entity, eff, source_name=attack.name, ctx=ctx)
+        # Choix de la cible: par défaut sur le défenseur; si attack.target == "self", sur l'attaquant
+        target = attacker if getattr(attack, "target", "enemy") == "self" else defender
+
+        # Contexte d'événements pour le log
+        events = []
+        ctx = CombatContext(attacker=attacker, defender=defender, events=events)
+
+        for eff in attack.effects:
+            e2 = self._clone_effect_instance(eff)   # <-- NOUVEAU : clone par application
+            try:
+                self.effects.apply(target, e2, source_name=f"attack:{attack.name}", ctx=ctx)
+            except Exception:
+                # fallback hyper sûr : applique “à sec”
+                e2.on_apply(target, ctx)
+
+        # on pousse les logs dans le flux d’événements courant
+        if self.io and events:
+            self.io.present_events(CombatResult(events=events, attacker_alive=True, defender_alive=True, damage_dealt=0, was_crit=False))
         
     def _tick_end_of_turn(self, attacker, defender):
         if self.effects is None:
@@ -489,6 +502,21 @@ class GameLoop:
                             res = mgr.buy_offer(self.player, offer, qty=qty)
                     else:
                         res = None
+                elif action == "SAVE":
+                    ok = save_to_file(self, "save_slot_1.json")
+                    if self.io:
+                        msg = "Sauvegarde réussie." if ok else "Échec de sauvegarde."
+                        self.io.present_text(msg)
+                elif action == "LOAD":
+                    loaded = load_from_file("save_slot_1.json", io=self.io)
+                    if loaded:
+                        # On remplace l’état courant par celui chargé (simplest path)
+                        self.__dict__.update(loaded.__dict__)
+                        if self.io:
+                            self.io.present_text("Partie chargée.")
+                    else:
+                        if self.io:
+                            self.io.present_text("Impossible de charger le fichier.")
                 else:  # "LEAVE" ou inconnu
                     break
 
@@ -530,6 +558,37 @@ class GameLoop:
     
     def _rng_choice(self, seq: Sequence) -> any:
         return seq[self.rng.randrange(0, len(seq))]
+
+    def _clone_effect_instance(self, eff):
+        """Retourne une nouvelle instance d'effet avec la même config.
+        1) Si l'effet a .clone(), on l'utilise.
+        2) Sinon on essaye via effects_bank.make_effect(effect_id ou name).
+        3) En dernier recours: deepcopy (moins idéal si l'effet garde des refs contextuelles).
+        """
+        # 1) clone() explicite
+        try:
+            clone = getattr(eff, "clone", None)
+            if callable(clone):
+                return clone()
+        except Exception:
+            pass
+
+        # 2) reconstruction via effects_bank
+        try:
+            from content.effects_bank import make_effect
+            eid = getattr(eff, "effect_id", None) or getattr(eff, "name", None) or "custom"
+            # on préfère 'remaining' si présent (effet déjà tické), sinon 'duration'
+            dur = getattr(eff, "remaining", None)
+            if dur is None:
+                dur = getattr(eff, "duration", 0)
+            pot = getattr(eff, "potency", 0)
+            return make_effect(eid, duration=int(dur), potency=int(pot))
+        except Exception:
+            pass
+
+        # 3) fallback
+        import copy
+        return copy.deepcopy(eff)
 
     def _list_player_attacks(self) -> list[Attack]:
         opts: list[Attack] = []
