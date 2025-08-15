@@ -6,6 +6,8 @@ from typing import List, Sequence, Optional
 from core.player import Player
 from core.enemy import Enemy
 from core.attack import Attack
+from core.wallet import Wallet
+from content.shop_offers import ShopOffer
 
 # On importe uniquement les types "simples" depuis game_loop
 from game.game_loop import Section, SectionType, Zone, ZoneType
@@ -107,6 +109,36 @@ class ConsoleIO:
             print(f"  {i}) {label}")
         idx = self._ask_index(len(options))
         return options[idx]
+
+    def choose_supply_action(self, player, *, wallet: Wallet, offers):
+        print(f"\n-- Ravitaillement -- Or: {wallet.gold}")
+        print("  1) Se reposer")
+        print("  2) Réparer (tout ce qu’on peut)")
+        print("  3) Boutique")
+        print("  4) Quitter")
+        idx = self._ask_index(4)
+        return ["REST","REPAIR","SHOP","LEAVE"][idx]
+
+    def choose_shop_purchase(self, offers: list[ShopOffer], *, wallet:Wallet):
+        print(f"\nBoutique (or: {wallet.gold})")
+        for i, off in enumerate(offers, 1):
+            label = off.name if off.kind != "item" else f"{off.name} ({off.item_id})"
+            print(f"  {i}) {label} — {off.price} or")
+        print("  0) Retour")
+        raw = input("> Choix: ").strip()
+        if raw == "0":
+            return None
+        try:
+            idx = int(raw) - 1
+            off = offers[idx]
+        except Exception:
+            return None
+        qty = 1
+        if off.kind == "item":
+            q = input("> Quantité (défaut 1): ").strip()
+            if q.isdigit():
+                qty = max(1, int(q))
+        return (off, qty)
 
     def choose_next_zone(self, options: Sequence[ZoneType]) -> ZoneType:
         """Après un boss vaincu, choisir la prochaine zone parmi 3 options."""

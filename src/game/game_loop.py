@@ -20,6 +20,9 @@ from core.effect_manager import EffectManager
 from core.loadout_manager import LoadoutManager
 from content.actions import default_loadout_for_class
 from core.inventory import Inventory
+from core.wallet import Wallet
+from core.supply import SupplyManager
+from content.shop_offers import build_offers, REST_HP_PCT, REST_SP_PCT, REPAIR_COST_PER_POINT, ShopOffer
 
 
 # =========================
@@ -39,6 +42,8 @@ class GameIO(Protocol):
     def on_zone_start(self, zone: "Zone") -> None: ...
     def on_zone_cleared(self, zone: "Zone") -> None: ...
     def choose_section(self, zone: "Zone", options: Sequence["Section"]) -> "Section": ...
+    def choose_supply_action(self, player: Player, *, wallet: Wallet, offers: list[ShopOffer]): ...
+    def choose_shop_purchase(self, offers: list[ShopOffer], *, wallet:Wallet): ...
     def choose_next_zone(self, options: Sequence["ZoneType"]) -> "ZoneType": ...
 
 
@@ -103,6 +108,11 @@ class GameLoop:
         self.effects = EffectManager()
         self.player_inventory = Inventory(capacity=12)
         self.loadouts = LoadoutManager
+        try:
+            from core.settings import START_GOLD
+            self.wallet = Wallet(START_GOLD)
+        except Exception:
+            self.wallet = Wallet(50)
         try:
             class_key = getattr(self.player, "player_class_key", "guerrier")
             self.loadouts.set(self.player, default_loadout_for_class(class_key))
@@ -324,8 +334,42 @@ class GameLoop:
         pass
 
     def _handle_supply_section(self) -> None:
-        """# TODO: repos, marchands, réparations, gestion d'inventaire (aucune I/O ici)."""
-        pass
+        """Ravitaillement: repos, réparation, achats (parchemin d’attaque de classe inclus)."""
+        mgr = SupplyManager(self.player_inventory, self.wallet, self.loadouts)
+        class_key = getattr(self.player, "player_class_key", "guerrier")
+        offers = build_offers(zone_level=self.zone.level, player_class_key=class_key)
+
+        # Si l'IO sait présenter un menu Supply, on le laisse piloter
+        if self.io and hasattr(self.io, "choose_supply_action"):
+            running = True
+            while running:
+                action = self.io.choose_supply_action(self.player, wallet=self.wallet, offers=offers)
+                if action == "REST":
+                    res = mgr.do_rest(self.player, hp_pct=REST_HP_PCT, sp_pct=REST_SP_PCT)
+                elif action == "REPAIR":
+                    res = mgr.repair_all_you_can_afford(self.player, price_per_point=REPAIR_COST_PER_POINT)
+                elif action == "SHOP":
+                    # laisser l’IO sélectionner une offre + quantité
+                    if hasattr(self.io, "choose_shop_purchase"):
+                        choice = self.io.choose_shop_purchase(offers, wallet=self.wallet)
+                        choice = self.io.dk
+                        if choice is None:
+                            res = None
+                        else:
+                            offer, qty = choice
+                            res = mgr.buy_offer(self.player, offer, qty=qty)
+                    else:
+                        res = None
+                else:  # "LEAVE" ou inconnu
+                    break
+
+                if res is not None and self.io:
+                    self.io.present_events(CombatResult(events=res.events, attacker_alive=True, defender_alive=True, damage_dealt=0, was_crit=False))
+        else:
+            # Fallback simple: repos gratuit et on sort
+            res = mgr.do_rest(self.player, hp_pct=REST_HP_PCT, sp_pct=REST_SP_PCT)
+            if self.io:
+                self.io.present_events(CombatResult(events=res.events, attacker_alive=True, defender_alive=True, damage_dealt=0, was_crit=False))
 
     # -------------
     # Utilitaires

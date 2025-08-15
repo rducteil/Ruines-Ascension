@@ -12,3 +12,5 @@ def BASE_PLAYER() -> PlayerInitKwargs:
     "base_hp_max" : 50,
     "base_sp_max" : 50
     }
+
+START_GOLD = 50
