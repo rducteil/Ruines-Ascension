@@ -4,11 +4,11 @@ from __future__ import annotations
 - Aucune I/O directe (utilise GameIO).
 """
 
-from __future__ import annotations
+
 from dataclasses import dataclass
+import random
 from enum import Enum, auto
 from typing import Callable, List, Optional, Protocol, Sequence, Tuple, Any
-import random
 
 from core.player import Player
 from core.enemy import Enemy
@@ -66,6 +66,73 @@ class ZoneType(Enum):
     DESERT = auto()
     SWAMP = auto()
 
+@dataclass
+class ZoneState:
+    zone_type: "ZoneType"
+    level: int
+    explored: int = 0
+    boss_defeated: bool = False
+
+    def boss_forced(self) -> bool:
+        return self.explored >= 4 and not self.boss_defeated
+
+# --- Tirage de 2 types distincts selon des poids ---
+def _weighted_sample_two_distinct(items: Sequence["SectionType"],
+                                  weights: Sequence[float],
+                                  rng: random.Random) -> tuple["SectionType", "SectionType"]:
+    assert len(items) == len(weights) >= 2
+    total = sum(weights)
+    r = rng.uniform(0, total)
+    acc = 0.0
+    first = items[-1]
+    for it, w in zip(items, weights):
+        acc += w
+        if r <= acc:
+            first = it
+            break
+    # retirer 'first'
+    items2, weights2 = [], []
+    for it, w in zip(items, weights):
+        if it != first:
+            items2.append(it)
+            weights2.append(w)
+    total2 = sum(weights2)
+    r2 = rng.uniform(0, total2)
+    acc2 = 0.0
+    second = items2[-1]
+    for it, w in zip(items2, weights2):
+        acc2 += w
+        if r2 <= acc2:
+            second = it
+            break
+    return first, second
+
+def section_choices_for(zone: ZoneState, rng: random.Random,
+                        weights: dict["SectionType", float] | None = None) -> list["SectionType"]:
+    """Retourne 1 ou 2 choix de section.
+    - Si boss forcé (après 4 sections): [BOSS]
+    - Sinon: 2 types distincts parmi {COMBAT, EVENT, SUPPLY}.
+    """
+    if zone.boss_forced():
+        return [SectionType.BOSS]
+
+    w = weights or {
+        SectionType.COMBAT: 0.5,
+        SectionType.EVENT:  0.25,
+        SectionType.SUPPLY: 0.25,
+    }
+    items = [SectionType.COMBAT, SectionType.EVENT, SectionType.SUPPLY]
+    ws = [w[it] for it in items]
+    a, b = _weighted_sample_two_distinct(items, ws, rng)
+    return [a, b]
+
+def next_zone_options(current: "ZoneType", rng: random.Random, k: int = 3) -> list["ZoneType"]:
+    """Propose k zones suivantes, distinctes et ≠ current si possible."""
+    all_types = list(ZoneType)
+    pool = [z for z in all_types if z != current] or all_types
+    rng.shuffle(pool)
+    return pool[:max(1, min(k, len(pool)))]
+
 ZONE_TYPE_LIST: List[ZoneType] = [ZoneType.RUINS, ZoneType.CAVES, ZoneType.FOREST, ZoneType.DESERT, ZoneType.SWAMP]
 
 @dataclass
@@ -107,9 +174,12 @@ class GameLoop:
         self.player = player
         self.io = io
         self.rng = random.Random(seed)
+        # Zone courante
+        self.zone = Zone(zone_type=initial_zone or self._rng_choice(ZONE_TYPE_LIST), level=start_level)
+        self.zone_state = ZoneState(zone_type=self.zone.zone_type, level=self.zone.level)
         self.effects = EffectManager()
         self.player_inventory = Inventory(capacity=12)
-        self.loadouts = LoadoutManager
+        self.loadouts = LoadoutManager()
         try:
             from core.settings import START_GOLD
             self.wallet = Wallet(START_GOLD)
@@ -129,10 +199,6 @@ class GameLoop:
         )
         self.engine = CombatEngine(seed=seed)  # CombatEngine gère crits, usure, etc.
         self.running = True
-
-        # Zone courante
-        self.zone = Zone(zone_type=initial_zone or self._rng_choice(ZONE_TYPE_LIST),
-                         level=start_level)
 
     # -------------
     # Entrée / Run
@@ -175,24 +241,44 @@ class GameLoop:
 
     def _generate_section_choices(self, zone: Zone) -> List[Section]:
         """Propose 2 sections de types différents parmi COMBAT/EVENT/SUPPLY (jamais 2 fois le même)."""
-        # Pool de types possibles (pas BOSS ici)
         pool = [SectionType.COMBAT, SectionType.EVENT, SectionType.SUPPLY]
         a = self._rng_choice(pool)
-        if a == SectionType.SUPPLY:
-            b = self._rng_choice([t for t in pool if t != a])
-        else:
-            b = self._rng_choice(pool)
-
+        b = self._rng_choice([t for t in pool if t != a])  # <-- toujours différent
         return [self._make_section(zone, a), self._make_section(zone, b)]
 
     def _generate_boss_section(self, zone: Zone) -> Section:
         return self._make_section(zone, SectionType.BOSS)
+
+    def _choose_next_section_type(self) -> "SectionType":
+        choices = section_choices_for(self.zone_state, self.rng)
+        if self.io and hasattr(self.io, "choose_next_section"):
+            idx = self.io.choose_next_section(choices)  # renvoie 0..len(choices)-1
+            idx = max(0, min(idx, len(choices)-1))
+            return choices[idx]
+        # fallback: si boss forcé il n'y en a qu'un ; sinon on prend le premier
+        return choices[0]
 
     def _choose_section(self, options: Sequence[Section]) -> Section:
         """Délègue à l'I/O si dispo, sinon première option par défaut."""
         if self.io and hasattr(self.io, "choose_section"):
             return self.io.choose_section(self.zone, options)
         return options[0]
+
+    def _on_section_cleared(self, section_type: "SectionType") -> None:
+        if section_type != SectionType.BOSS:
+            self.zone_state.explored += 1
+
+    def _after_boss_and_pick_next_zone(self) -> None:
+        self.zone_state.boss_defeated = True
+        opts = next_zone_options(self.zone_state.zone_type, self.rng, k=3)
+        if self.io and hasattr(self.io, "choose_next_zone"):
+            idx = self.io.choose_next_zone(opts)  # renvoie 0..k-1
+            idx = max(0, min(idx, len(opts)-1))
+            new_type = opts[idx]
+        else:
+            new_type = opts[0]
+        # reset zone: +1 niveau et sections réinitialisées
+        self.zone_state = ZoneState(zone_type=new_type, level=self.zone_state.level + 1)
 
     def _choose_next_zone(self, current_zone: Zone) -> ZoneType:
         """Après boss, propose 3 zones de types distincts (différents possibles du courant)."""
@@ -242,9 +328,8 @@ class GameLoop:
             else:
                 p_attack: Attack = payload
                 res_p = self.engine.resolve_turn(self.player, enemy, p_attack)
-
-            # On gère les effets player
-            self._apply_attack_effects(attacker=self.player, defender=enemy, attack=p_attack, result=res_p)
+                # On gère les effets player
+                self._apply_attack_effects(attacker=self.player, defender=enemy, attack=p_attack, result=res_p)
 
             # On gère l'affichage I/O
             if self.io:
@@ -279,12 +364,12 @@ class GameLoop:
         """Renvoie ('attack', Attack) ou ('item', item_id)."""
         # 1) Si l'IO offre un menu d'action complet, on l'utilise
         if self.io and hasattr(self.io, "choose_player_action"):
-            # Ici, on réutilise la sélection d'attaque existante comme 'options'
-            options = [self._select_player_attack(enemy)]
-            return self.io.choose_player_action(self.player, enemy, attacks=options, inventory=self.player_inventory)
+            return self.io.choose_player_action(self.player, enemy,
+                                                attacks=self._list_player_attacks(),
+                                                inventory=self.player_inventory)
 
         # 2) Fallback : ancien comportement (attaque seulement)
-        return ("attack", self._select_player_attack(enemy))
+        return ("attack", self._list_player_attacks()[0])
 
     def _select_player_attack(self, enemy: Enemy) -> Attack:
         if self.io and hasattr(self.io, "choose_player_attack"):
@@ -328,7 +413,7 @@ class GameLoop:
     def _tick_end_of_turn(self, attacker, defender):
         if self.effects is None:
             return
-        events: list[CombatContext] = []
+        events: list[CombatEvent] = []
         ctx = CombatContext(attacker=attacker, defender=defender, events=events)
         self.effects.on_turn_end(attacker, ctx)
         if self.io and events:
@@ -397,7 +482,6 @@ class GameLoop:
                     # laisser l’IO sélectionner une offre + quantité
                     if hasattr(self.io, "choose_shop_purchase"):
                         choice = self.io.choose_shop_purchase(offers, wallet=self.wallet)
-                        choice = self.io.dk
                         if choice is None:
                             res = None
                         else:
@@ -443,17 +527,17 @@ class GameLoop:
             base_hp_max=hp,
             base_sp_max=0,
         )
-
-    def _select_player_attack(self, enemy: Enemy):
-        lo = self.loadouts.get(self.player)
-        if lo:
-            options = lo.as_list()
-            if self.io and hasattr(self.io, "choose_player_attack"):
-                # L'I/O n'affiche que ces 3 actions
-                return self.io.choose_player_attack(self.player, enemy, options=options)
-            return options[0]
-        # Fallback si pas de Loadout
-        return Attack.basic(name="Attaque", base_damage=5, variance=2, cost=0)
     
     def _rng_choice(self, seq: Sequence) -> any:
         return seq[self.rng.randrange(0, len(seq))]
+
+    def _list_player_attacks(self) -> list[Attack]:
+        opts: list[Attack] = []
+        weapon = getattr(self.player, "weapon", None)
+        if weapon and hasattr(weapon, "get_available_attacks"):
+            specials = weapon.get_available_attacks()
+            if specials: opts.extend(specials)
+        class_attack = getattr(self.player, "class_attack", None)
+        if class_attack: opts.append(class_attack)
+        opts.append(Attack(name="Attaque basique", base_damage=5, variance=2, cost=0))
+        return opts

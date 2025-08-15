@@ -1,0 +1,7 @@
+{
+  "guerrier":  { "primary": "FRAPPER",     "skill": "BRISE_GARDE", "utility": "CHARGE" },
+  "mystique":  { "primary": "ONDE",        "skill": "SIPHON",      "utility": "CONCENTRATION" },
+  "vagabond":  { "primary": "COUP_RAPIDE", "skill": "LAME_TOXIQUE","utility": "PARI" },
+  "arpenteur": { "primary": "PERCEE",      "skill": "FENTE",       "utility": "MARQUE" },
+  "sentinelle":{ "primary": "HEURT",       "skill": "ECRASEMENT",  "utility": "GARDE" }
+}

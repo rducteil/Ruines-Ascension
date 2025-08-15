@@ -1,7 +1,7 @@
 from __future__ import annotations
 """Registry d'effets pour les évènements data-driven."""
 
-from core.effects import Effect, AttackBuffEffect, DefenseBuffEffect, PoisonEffect
+from core.effects import Effect, AttackBuffEffect, DefenseBuffEffect, LuckBuffEffect, PoisonEffect
 
 def make_effect(effect_id: str, *, duration: int = 0, potency: int = 0) -> Effect:
     effect_id = str(effect_id or "").lower()
@@ -9,6 +9,8 @@ def make_effect(effect_id: str, *, duration: int = 0, potency: int = 0) -> Effec
         return AttackBuffEffect("Bénédiction d'attaque", duration=duration, potency=potency)
     if effect_id == "ward_def":
         return DefenseBuffEffect("Protection défensive", duration=duration, potency=potency)
+    if effect_id == "luck_up":
+        return LuckBuffEffect("Chance accrue", duration=duration, potency=potency)
     if effect_id == "poison":
         return PoisonEffect("Poison", duration=duration, potency=potency)
     if effect_id == "blessing":

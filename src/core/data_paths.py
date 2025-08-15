@@ -1,27 +1,37 @@
 from __future__ import annotations
+"""Résolution des chemins de données (mods → env → src/data)."""
+
 from pathlib import Path
 import os
 
 APP_NAME = "ruines_ascendantes"
 
 def default_data_dirs() -> list[Path]:
-    paths: list[Path] = []
+    dirs: list[Path] = []
+
     # 1) dossier utilisateur (mods)
     home = Path.home()
-    paths.append(home / f".{APP_NAME}" / "data")
+    dirs.append(home / f".{APP_NAME}" / "data")
+
     # 2) variable d’environnement
     env = os.environ.get("GAME_DATA_DIR")
     if env:
-        paths.append(Path(env))
+        dirs.append(Path(env))
+
     # 3) fallback projet: src/data/
     here = Path(__file__).resolve()
-    src_root = next(p for p in here.parents if (p / "data").exists())  # remonte jusqu’à src/
-    paths.append(src_root / "data")
-    return paths
+    # remonte jusqu'à 'src/' puis 'src/data'
+    for p in here.parents:
+        maybe = p / "data"
+        if maybe.is_dir():
+            dirs.append(maybe)
+            break
+    
+    return dirs
 
-def resolve_data_file(category: str, filename: str) -> Path | None:
+def iter_category_files(category: str, suffix: str = ".json"):
+    """Itère tous les fichiers d'une catégorie ('events', 'items', ...) dans l'ordre de priorité."""
     for base in default_data_dirs():
-        p = base / category / filename
-        if p.exists():
-            return p
-    return None
+        folder = base / category
+        if folder.is_dir():
+            yield from folder.glob(f"*{suffix}")

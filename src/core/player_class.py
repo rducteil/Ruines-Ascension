@@ -1,24 +1,26 @@
 from __future__ import annotations
 """Définitions des classes de joueur + registre CLASSES."""
 
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Optional, TYPE_CHECKING
 
 from core.stats import Stats
 from core.attack import Attack
-from core.entity import Entity
+
+if TYPE_CHECKING:
+    from core.entity import Entity
 
 
 @dataclass
 class PlayerClass:
     """Defines starting bonuses and a signature class attack."""
     name: str
-    bonus_stats: Stats = Stats(attack=0, defense=0, luck=0)
+    bonus_stats: Stats = field(default_factory=lambda: Stats(attack=0, defense=0, luck=0))
     bonus_hp_max: int = 0
     bonus_sp_max: int = 0
     class_attack: Optional[Attack] = None
 
-    def apply_to(self, player: Entity) -> None:
+    def apply_to(self, player: "Entity") -> None:
         """Apply bonuses to a freshly created player (mutates stats/resources)."""
         # Stats bonus (flat)
         player.base_stats.attack += self.bonus_stats.attack
@@ -33,3 +35,4 @@ class PlayerClass:
         if self.class_attack is not None:
             setattr(player, "class_attack", self.class_attack)
 
+CLASSES: dict[str, PlayerClass] = {}

@@ -30,6 +30,7 @@ Format JSON attendu (ex. data/events/ruins_altar_01.json):
 import json, os, random
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
+from pathlib import Path
 
 from core.combat_types import CombatEvent, CombatContext, CombatResult
 from core.effects import Effect

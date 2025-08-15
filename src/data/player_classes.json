@@ -1,0 +1,63 @@
+{
+  "guerrier": {
+    "name": "Guerrier",
+    "bonus_stats": { "attack": 25, "defense": 10, "luck": 0 },
+    "bonus_hp_max": 15,
+    "attack": {
+      "name": "Coup de taille",
+      "base_damage": 15,
+      "variance": 2,
+      "cost": 10,
+      "crit_multiplier": 2.5
+    }
+  },
+  "mystique": {
+    "name": "Mystique",
+    "bonus_stats": { "attack": 40, "defense": 0, "luck": 10 },
+    "bonus_sp_max": 20,
+    "attack": {
+      "name": "Rayon mystique",
+      "base_damage": 10,
+      "variance": 6,
+      "cost": 16,
+      "true_damage": 5
+    }
+  },
+  "vagabond": {
+    "name": "Vagabond",
+    "bonus_stats": { "attack": 0, "defense": 0, "luck": 20 },
+    "bonus_hp_max": 10,
+    "bonus_sp_max": 20,
+    "attack": {
+      "name": "Frappe agile",
+      "base_damage": 10,
+      "variance": 5,
+      "cost": 10,
+      "crit_multiplier": 3.0
+    }
+  },
+  "arpenteur": {
+    "name": "Arpenteur",
+    "bonus_stats": { "attack": 15, "defense": 0, "luck": 0 },
+    "bonus_hp_max": 10,
+    "bonus_sp_max": 25,
+    "attack": {
+      "name": "Percée rapide",
+      "base_damage": 9,
+      "variance": 2,
+      "cost": 10,
+      "ignore_defense_pct": 0.3
+    }
+  },
+  "sentinelle": {
+    "name": "Sentinelle",
+    "bonus_stats": { "attack": 0, "defense": 40, "luck": 0 },
+    "bonus_hp_max": 10,
+    "attack": {
+      "name": "Mur écrasant",
+      "base_damage": 20,
+      "variance": 0,
+      "cost": 20
+    }
+  }
+}

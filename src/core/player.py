@@ -11,9 +11,9 @@ from typing import Optional, TYPE_CHECKING, Literal
 
 from core.entity import Entity
 from core.stats import Stats
-from core.settings import *
-from core.player_class import PlayerClass 
-from content.player_classes import CLASSES # registre et type de classe joueur
+from core.player_class import PlayerClass, CLASSES as CLASS_REG
+
+
 
 if TYPE_CHECKING:
     from core.equipment import Equipment
@@ -37,7 +37,8 @@ class Player(Entity):
         self.artifact: Optional[Equipment] = None
 
         # Apply class bonuses (stats + resources) if provided
-        self.player_class: PlayerClass = CLASSES[player_class_key]
+        self.player_class_key = player_class_key
+        self.player_class: PlayerClass = CLASS_REG[player_class_key]
         self.player_class.apply_to(self)
 
     Slot = Literal["weapon", "armor", "artifact"]
@@ -73,11 +74,4 @@ class Player(Entity):
         print(f"  Armure   : {a}")
         print(f"  Artefact : {r}")
 
-    def __str__(self) -> str:
-        return f"{self.name} (classe: {self.player_class.name})"
 
-p = Player(
-    name = "Moi",
-    player_class_key = "guerrier",
-    **BASE_PLAYER()
-)
