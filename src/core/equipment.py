@@ -1,22 +1,26 @@
 from __future__ import annotations
-"""Base des objets équipables (durabilité, hooks on_equip/on_unequip).
+"""Base des objets équipables: durabilité, (dés)activation des bonus, hooks.
 
-- Règle: à 0, l'objet reste équipé mais bonus désactivés.
+Règles:
+- À 0 de durabilité → cassé: l'objet reste équipé mais ses bonus sont désactivés.
+- Si réparé (>0) et qu'il est équipé → bonus réappliqués automatiquement.
 """
 
 from dataclasses import dataclass
 from typing import Optional, TYPE_CHECKING
+
 from core.resource import Resource
 if TYPE_CHECKING:
     from core.entity import Entity
 
 @dataclass
 class Equipment:
+    '''Equipement: equip/un_equip, repair/degrade et gère l'application et le retrait des bonus'''
     name: str
     durability: Resource
     description: str = ""
-    _holder: Optional[Entity]
-    _bonuses_applied: bool
+    _holder: Optional[Entity] = None
+    _bonuses_applied: bool = False
 
     # --- état ---
     def is_broken(self) -> bool:
@@ -25,60 +29,66 @@ class Equipment:
     @property
     def bonuses_active(self) -> bool:
         """Vrai si les bonus sont effectivement appliqués au porteur."""
-        return self._bonuses_applied
+        return (self._holder is not None) and (not self.is_broken()) and self._bonuses_applied
 
     # --- cycle de vie d'équipement ---
     def on_equip(self, entity: "Entity") -> None:
-        """Appelé par Player/Enemy quand l'objet est équipé."""
+        """Appelé par Player quand l'objet est équipé."""
         self._holder = entity
-        if not self.is_broken() and not self._bonuses_applied:
+        if not self.is_broken():
             self.apply_bonuses(entity)
             self._bonuses_applied = True
+        else:
+            self._bonuses_applied = False
 
     def on_unequip(self, entity: "Entity") -> None:
-        """Appelé par Player/Enemy quand l'objet est déséquipé."""
+        """Appelé par Player quand l'objet est déséquipé."""
         if self._bonuses_applied:
             self.remove_bonuses(entity)
-            self._bonuses_applied = False
+        self._bonuses_applied = False
         self._holder = None
 
     # --- (dé)gradation / réparation ---
     def degrade(self, amount: int = 1) -> bool:
-        if amount <= 0:
+        '''Baisse la durabilité. Retourne True si l'objet vient de se casser.'''
+        if amount <= 0 or self.is_broken():
             return False
-        was_broken = self.is_broken()
+        before = self.durability.current
         self.durability.remove(amount)
-        if not was_broken and self.is_broken() and self._holder and self._bonuses_applied:
+        just_broke = (before > 0 and self.durability.current == 0)
+        if just_broke and self._holder is not None and self._bonuses_applied:
+            # Désactiver les bonus
             self.remove_bonuses(self._holder)
             self._bonuses_applied = False
-            return True  # vient de casser
-        return False
+        return just_broke
 
     def repair(self, amount: int) -> bool:
+        '''Répare. Retourne True si l'objet redevient fonctionnel (0 -> >0)'''
         if amount <= 0:
             return False
-        was_broken = self.is_broken()
+        before = self.durability.current
         self.durability.add(amount)
-        if was_broken and not self.is_broken() and self._holder and not self._bonuses_applied:
+        became_functional = (before == 0 and self.durability.current > 0)
+        if became_functional and self._holder is not None and not self._bonuses_applied:
+            # Réactiver les bonus
             self.apply_bonuses(self._holder)
             self._bonuses_applied = True
-            return True  # vient d'être réparé (redevenu fonctionnel)
-        return False
+        return became_functional
 
     def set_quality(self, new_max: int, keep_ratio: bool = False) -> None:
         """Change la durabilité max. Réactive/désactive les bonus si on traverse 0."""
-        new_max = max(0, int(new_max))
-
         was_broken = self.is_broken()
-        self.durability.set_maximum(new_max, preserve_ratio=keep_ratio)
+        self.durability.set_maximum(new_max=new_max, preserve_ratio=keep_ratio)
         now_broken = self.is_broken()
 
-        # Si l'état a changé et qu'on a un porteur, (dés)activer les bonus
-        if self._holder:
-            if was_broken and not now_broken and not self._bonuses_applied:
+        if was_broken and not now_broken:
+            # Si redevenu fonctionnel grâce à une hausse de max -> réactive bonus
+            if self._holder is not None and not self._bonuses_applied:
                 self.apply_bonuses(self._holder)
                 self._bonuses_applied = True
-            elif not was_broken and now_broken and self._bonuses_applied:
+        elif not was_broken and now_broken:
+            # Si devenu cassé parce qu'on a réduit max -> désactiver bonus
+            if self._holder is not None and self.bonuses_active:
                 self.remove_bonuses(self._holder)
                 self._bonuses_applied = False
 
@@ -95,4 +105,4 @@ class Equipment:
     # --- helpers UI/log ---
     def get_info(self) -> str:
         state = "cassé" if self.is_broken() else "ok"
-        return f"{self.name} [{state}] ({self.durability_current}/{self.durability_max})"
+        return f"{self.name} [{state}] ({self.durability.current}/{self.durability.maximum})"

@@ -3,7 +3,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from core.equipment import Equipment
-from modifier import StatPercentMod
+from core.modifier import StatPercentMod
+from core.resource import Resource
+
 if TYPE_CHECKING:
     from core.entity import Entity
 
@@ -14,17 +16,17 @@ class Artifact(Equipment):
 
     def __init__(self, 
                  name: str, 
-                 durability_max: int, 
+                 durability: Resource, 
                  atk_pct=0.0, 
                  def_pct=0.0, 
                  lck_pct=0.0, 
                  description: str = ""):
-        super().__init__(name=name, durability_max=durability_max, description=description)
+        super().__init__(name=name, durability=durability, description=description)
         self.atk_pct = int(atk_pct)
         self.def_pct = int(def_pct)
         self.lck_pct = int(lck_pct)
 
-    # --- stat bonuses lifecycle ---
+    # --- stat bonuses ---
     def apply_bonuses(self, entity: "Entity"):
         pass
 
@@ -32,8 +34,12 @@ class Artifact(Equipment):
         pass
     
     def stat_percent_mod(self) -> StatPercentMod:
-        if self.is_broken() or not self.bonuses_active:
-            return StatPercentMod
+        if self.is_broken():
+            return StatPercentMod(
+                attack_pct=0.0,
+                defense_pct=0.0,
+                luck_pct=0.0
+            )
         return StatPercentMod(
             attack_pct=self.atk_pct,
             defense_pct=self.def_pct,

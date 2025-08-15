@@ -3,6 +3,7 @@ from core.utils import clamp
 
 @dataclass
 class Resource:
+    '''Création d'une ressource: current/maximum, add/remove et set_maximum'''
     current: int
     maximum: int
 
@@ -19,7 +20,7 @@ class Resource:
     def set_maximum(self, new_max: int, preserve_ratio: bool = True):
         if preserve_ratio and self.maximum > 0:
             ratio = self.current / self.maximum
-            self.maximummax(0, new_max)
+            self.maximum = max(0, new_max)
             self.current = int(round(self.maximum * ratio))
         else:
             self.maximum = max(0,new_max)

@@ -1,27 +1,33 @@
 from __future__ import annotations
-"""Weapon: bonus plats (ATK), attaques spéciales, usure à l’usage."""
+"""Weapon: bonus plats (ATK), usure à l’usage et attaques spéciales optionelles."""
 
 from typing import Optional, List, TYPE_CHECKING
 from core.equipment import Equipment
-from core.attack import Attack
+from core.resource import Resource
+
 if TYPE_CHECKING:
     from core.entity import Entity
+    from core.attack import Attack
     from core.combat_types import CombatContext
 
 class Weapon(Equipment):
-    """A weapon that grants a flat attack bonus and (optionally) special attacks."""
+    """Weapon: bonus plats (ATK), usure à l’usage et attaques spéciales optionelles."""
 
     def __init__(self, 
                  name: str, 
-                 durability_max: int, 
+                 durability: Resource, 
                  bonus_attack: int = 0, 
                  special_attacks: Optional[List[Attack]] = None, 
                  description: str = ""):
-        super().__init__(name=name, durability_max=durability_max, description=description)
+        super().__init__(name=name, durability=durability, description=description)
         self.bonus_attack: int = int(bonus_attack)
         self.special_attacks: List[Attack] = list(special_attacks or [])
 
-    # --- stat bonuses lifecycle ---
+    def get_available_attacks(self) -> List[Attack]:
+        """Attaques spéciales offertes par l'arme (optionnel)."""
+        return list(self.special_attacks)
+
+    # --- stat bonuses ---
     def apply_bonuses(self, entity: "Entity") -> None:
         """Apply the weapon's stat bonuses to the holder."""
         entity.base_stats.attack += self.bonus_attack
@@ -30,11 +36,9 @@ class Weapon(Equipment):
         """Remove the weapon's stat bonuses from the holder."""
         entity.base_stats.attack -= self.bonus_attack
 
-    # --- hooks called by the combat engine ---
+    # --- usure ---
     def on_after_attack(self, ctx: "CombatContext") -> None:
+        '''Hook appelé par le moteur après l'attaque du porteur'''
         self.degrade(1)
 
-    # --- convenience ---
-    def get_available_attacks(self) -> List[Attack]:
-        """Attacks granted by this weapon (usable even if the weapon is broken)."""
-        return self.special_attacks
+    
