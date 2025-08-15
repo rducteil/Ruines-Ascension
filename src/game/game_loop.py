@@ -7,7 +7,7 @@ from __future__ import annotations
 from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Callable, List, Optional, Protocol, Sequence
+from typing import Callable, List, Optional, Protocol, Sequence, Tuple, Any
 import random
 
 from core.player import Player
@@ -15,10 +15,11 @@ from core.enemy import Enemy
 from core.stats import Stats
 from core.attack import Attack
 from core.combat import CombatEngine
-from core.combat_types import CombatResult, CombatContext
+from core.combat_types import CombatResult, CombatContext, CombatEvent
 from core.effect_manager import EffectManager
 from core.loadout_manager import LoadoutManager
 from content.actions import default_loadout_for_class
+from core.inventory import Inventory
 
 
 # =========================
@@ -33,7 +34,7 @@ class GameIO(Protocol):
     def present_events(self, result: CombatResult) -> None: ...
     def show_status(self, player: Player, enemy: Enemy) -> None: ...
     def choose_player_attack(self, player: Player, enemy: Enemy) -> Attack: ...
-
+    def choose_player_action(self, player: Player, enemy:  Enemy, *, attacks: Sequence[Attack], inventory: Inventory) -> tuple[str, Any]: ...
     # Zones / Sections
     def on_zone_start(self, zone: "Zone") -> None: ...
     def on_zone_cleared(self, zone: "Zone") -> None: ...
@@ -100,6 +101,7 @@ class GameLoop:
         self.io = io
         self.rng = random.Random(seed)
         self.effects = EffectManager()
+        self.player_inventory = Inventory(capacity=12)
         self.loadouts = LoadoutManager
         try:
             class_key = getattr(self.player, "player_class_key", "guerrier")
@@ -214,36 +216,56 @@ class GameLoop:
             self.io.on_battle_start(self.player, enemy)
 
         while self.player.hp > 0 and enemy.hp > 0 and self.running:
-            # Tour du joueur
-            p_attack = self._select_player_attack(enemy)
-            res_p = self.engine.resolve_turn(self.player, enemy, p_attack)
+            # --- Tour du joueur ---
+            act_kind, payload = self._choose_player_action(enemy)
+            if act_kind == "item":
+                res_p = self._use_item_in_combat(payload) # payload = item_id
+            else:
+                p_attack: Attack = payload
+                res_p = self.engine.resolve_turn(self.player, enemy, p_attack)
+
             # On gère les effets player
             self._apply_attack_effects(attacker=self.player, defender=enemy, attack=p_attack, result=res_p)
+
             # On gère l'affichage I/O
             if self.io:
                 self.io.present_events(res_p)
                 self.io.show_status(self.player, enemy)
-            if not res_p.defender_alive or self.player.hp <= 0:
+            if enemy.hp <= 0 or self.player.hp <= 0:
                 break
             # Fin du tour du joueur; tick les effets
             self._tick_end_of_turn(attacker=self.player, defender=enemy)
 
-            # Tour de l'ennemi
+
+            # --- Tour de l'ennemi ---
             e_attack = self._select_enemy_attack(enemy)
             res_e = self.engine.resolve_turn(enemy, self.player, e_attack)
+
             # On gère les effets enemies
             self._apply_attack_effects(attacker=enemy, defender=self.player, attack=e_attack, result=res_e)
+
             # On gère l'affichage I/O
             if self.io:
                 self.io.present_events(res_e)
                 self.io.show_status(self.player, enemy)
-            if not res_e.defender_alive or self.player.hp <= 0:
+            if enemy.hp <= 0 or self.player.hp <= 0:
                 break
             # Fin du tour de l'enemie; tick les effets
             self._tick_end_of_turn(attacker=enemy, defender=self.player)
 
         if self.io:
             self.io.on_battle_end(self.player, enemy, victory=(self.player.hp > 0 and enemy.hp <= 0))
+    
+    def _choose_player_action(self, enemy: Enemy) -> Tuple[str, Any]:
+        """Renvoie ('attack', Attack) ou ('item', item_id)."""
+        # 1) Si l'IO offre un menu d'action complet, on l'utilise
+        if self.io and hasattr(self.io, "choose_player_action"):
+            # Ici, on réutilise la sélection d'attaque existante comme 'options'
+            options = [self._select_player_attack(enemy)]
+            return self.io.choose_player_action(self.player, enemy, attacks=options, inventory=self.player_inventory)
+
+        # 2) Fallback : ancien comportement (attaque seulement)
+        return ("attack", self._select_player_attack(enemy))
 
     def _select_player_attack(self, enemy: Enemy) -> Attack:
         if self.io and hasattr(self.io, "choose_player_attack"):
@@ -260,6 +282,14 @@ class GameLoop:
         # TODO: brancher une vraie IA (enemy.choose_action)
         return Attack(name="Griffe", base_damage=4, variance=1, cost=0)
     
+    def _use_item_in_combat(self, item_id: str) -> CombatResult:
+        events: list[CombatEvent] = []
+        ctx = CombatContext(attacker=self.player, defender=None, events=events)  # defender None: action utilitaire
+        item_events = self.player_inventory.use_consumable(item_id, user=self.player, ctx=ctx)
+        events.extend(item_events)
+        # Utiliser un objet consomme le tour, n'inflige pas de dégâts
+        return CombatResult(events=events, attacker_alive=True, defender_alive=True, damage_dealt=0, was_crit=False)
+
     def _apply_attack_effects(self, attacker, defender, attack: Attack, result: CombatResult):
         """Applique les effets listés sur `attack` si l'attaque a touché.
 
@@ -335,5 +365,6 @@ class GameLoop:
             return options[0]
         # Fallback si pas de Loadout
         return Attack.basic(name="Attaque", base_damage=5, variance=2, cost=0)
+    
     def _rng_choice(self, seq: Sequence) -> any:
         return seq[self.rng.randrange(0, len(seq))]

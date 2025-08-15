@@ -34,6 +34,26 @@ class ConsoleIO:
         msg = f"Victoire ! {enemy.name} est vaincu." if victory else f"Défaite… {player.name} tombe au combat."
         print(msg)
 
+    def choose_player_action(self, player, enemy, *, attacks, inventory):
+        print("\nChoisis une action :")
+        print("  1) Attaquer")
+        print("  2) Objet")
+        c = self._ask_index(2)
+        if c == 0:
+            # Menu d'attaque (ici un seul pour l’exemple, ou ton loadout)
+            return ("attack", attacks[0])
+        # Objet
+        items = [row for row in inventory.list_summary() if row["kind"] == "item"]
+        if not items:
+            print("   (Aucun objet utilisable) → Attaque par défaut.")
+            return ("attack", attacks[0])
+        print("Objets :")
+        for i, it in enumerate(items, 1):
+            print(f"  {i}) {it['name']} x{it['qty']}")
+        idx = self._ask_index(len(items))
+        item_id = items[idx]["id"]
+        return ("item", item_id)
+
     def choose_player_attack(self, player: Player, enemy: Enemy, options=None) -> Attack:
         """Menu simple: attaques d’arme spéciales + éventuelle attaque de classe + attaque basique."""
         if options is None:
