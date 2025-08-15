@@ -23,6 +23,7 @@ from core.inventory import Inventory
 from core.wallet import Wallet
 from core.supply import SupplyManager
 from content.shop_offers import build_offers, REST_HP_PCT, REST_SP_PCT, REPAIR_COST_PER_POINT, ShopOffer
+from core.event_engine import EventEngine
 
 
 # =========================
@@ -44,6 +45,7 @@ class GameIO(Protocol):
     def choose_section(self, zone: "Zone", options: Sequence["Section"]) -> "Section": ...
     def choose_supply_action(self, player: Player, *, wallet: Wallet, offers: list[ShopOffer]): ...
     def choose_shop_purchase(self, offers: list[ShopOffer], *, wallet:Wallet): ...
+    def choose_event_option(self, text: str, options: Sequence[str]): ...
     def choose_next_zone(self, options: Sequence["ZoneType"]) -> "ZoneType": ...
 
 
@@ -118,6 +120,13 @@ class GameLoop:
             self.loadouts.set(self.player, default_loadout_for_class(class_key))
         except Exception:
             pass
+        self.event_engine = EventEngine(
+            data_dir="data/events",
+            lang="fr",
+            seed=seed,
+            effects=self.effects,
+            enemy_factory=None
+        )
         self.engine = CombatEngine(seed=seed)  # CombatEngine gère crits, usure, etc.
         self.running = True
 
@@ -330,8 +339,44 @@ class GameLoop:
     # --------------------------
 
     def _handle_event_section(self) -> None:
-        """# TODO: évènements narratifs/effets spéciaux (aucune I/O ici)."""
-        pass
+        """Présente un évènement data-driven et applique le choix."""
+        # 1) choisir un événement compatible avec la zone courante
+        ev = self.event_engine.pick_for_zone(self.zone.zone_type.name)
+        if ev is None:
+            # fallback: rien de spécial
+            if self.io:
+                self.io.present_events(CombatResult(events=[CombatEvent(text="Rien d'inhabituel ici.", tag="event_none")],
+                                                    attacker_alive=True, defender_alive=True, damage_dealt=0, was_crit=False))
+            return
+
+        # 2) demander le choix à l'IO (ou prendre la première option)
+        if self.io and hasattr(self.io, "choose_event_option"):
+            chosen_id = self.io.choose_event_option(ev.text, [o.label for o in ev.options])
+            # la méthode IO peut renvoyer un index (int) ou un id (str) selon ton implémentation
+            if isinstance(chosen_id, int):
+                chosen_id = ev.options[max(0, min(chosen_id, len(ev.options)-1))].id
+        else:
+            chosen_id = ev.options[0].id
+
+        # 3) appliquer l'option choisie
+        res = self.event_engine.apply_option(
+            ev,
+            option_id=chosen_id,
+            player=self.player,
+            wallet=self.wallet,
+            extra_ctx={"zone": self.zone},
+        )
+
+        # 4) afficher les logs
+        if self.io and res.events:
+            self.io.present_events(CombatResult(events=res.events, attacker_alive=True, defender_alive=True, damage_dealt=0, was_crit=False))
+
+        # 5) démarrer un combat si l'évènement le demande
+        if res.start_combat:
+            # simple mapping: si "boss": True -> boss; sinon combat normal
+            is_boss = bool(res.start_combat.get("boss", False))
+            enemy = self._spawn_enemy(self.zone, is_boss=is_boss)
+            self._run_battle(enemy)
 
     def _handle_supply_section(self) -> None:
         """Ravitaillement: repos, réparation, achats (parchemin d’attaque de classe inclus)."""

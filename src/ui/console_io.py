@@ -140,6 +140,14 @@ class ConsoleIO:
                 qty = max(1, int(q))
         return (off, qty)
 
+    def choose_event_option(self, text: str, options: Sequence[str]):
+        print("\n-- Évènement --")
+        print(text)
+        for i, label in enumerate(options, 1):
+            print(f"  {i}) {label}")
+        idx = self._ask_index(len(options))
+        return idx  # renvoie l'index; le GameLoop convertit en id
+
     def choose_next_zone(self, options: Sequence[ZoneType]) -> ZoneType:
         """Après un boss vaincu, choisir la prochaine zone parmi 3 options."""
         print("\nChoisis la prochaine zone :")
