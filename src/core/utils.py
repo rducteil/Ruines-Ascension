@@ -1,16 +1,18 @@
-from typing import Iterable
+from typing import Iterable, TYPE_CHECKING
 from core.modifier import ResourceModifier
-from core.entity import Entity
 
-def clamp(n, min, max):
-    if n < min:
-        return min
-    elif n > max:
-        return max
+if TYPE_CHECKING:
+    from core.entity import Entity
+
+def clamp(n, lo, hi):
+    if n < lo:
+        return lo
+    elif n > hi:
+        return hi
     else:
         return n
     
-def apply_resource_mods(entity: Entity, 
+def apply_resource_mods(entity: "Entity", 
                         base_hp_max: int, 
                         base_sp_max: int, 
                         mods: Iterable[ResourceModifier], 

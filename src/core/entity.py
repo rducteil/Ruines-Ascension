@@ -39,12 +39,16 @@ class Entity:
     def heal_hp(self, amount: int): return self.hp_res.add(amount)
     def heal_sp(self, amount: int): return self.sp_res.add(amount)
 
-    def take_damage(self, amount: int): return self.hp_res.remove(amount)
+    def take_damage(self, amount: int): 
+        dmg = max(0, int(amount))
+        self.hp_res.remove(dmg)
+        return dmg
     def spend_sp(self, cost: int):
-        if self.sp_res.current >= cost:
-            self.sp_res.remove(cost)
-            return True
-        return False
+        c = max(0, int(cost))
+        if self.sp_res.current < c: 
+            return False
+        self.sp_res.remove(c) 
+        return True
     def restore_all(self):
         self.hp_res.current = self.hp_res.maximum
         self.sp_res.current = self.sp_res.maximum

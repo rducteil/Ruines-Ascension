@@ -36,8 +36,10 @@ class CombatEngine:
             self, 
             *, 
             seed: Optional[int] = None, 
+            _base_crit_mult: float = 2.0
             ):
         self.rng = random.Random(seed)
+        self._base_crit_mult = float(_base_crit_mult)
 
     # TODO: brancher ici effets de statut, esquive/parade si tu en ajoutes
 
@@ -131,7 +133,7 @@ class CombatEngine:
         p = clamp(float(self._crit_func(int(luck))), 0.0, 1.0)
         return self.rng.random() < p
 
-    def _default_crit_from_luck(self, luck: int) -> float:
+    def _crit_func(self, luck: int) -> float:
         return (1.0 - (0.98 ** max(0, luck))) / 0.8673804
 
     def _crit_multiplier(self, entity: "Entity", attack: AttackLike) -> float:

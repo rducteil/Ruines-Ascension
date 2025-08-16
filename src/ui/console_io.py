@@ -41,9 +41,18 @@ class ConsoleIO:
         print("  1) Attaquer")
         print("  2) Objet")
         c = self._ask_index(2)
+
         if c == 0:
-            # Menu d'attaque (ici un seul pour l’exemple, ou ton loadout)
-            return ("attack", attacks[0])
+            # Utiliser la liste "attacks" passée par GameLoop
+            print("\nChoisis une attaque :")
+            for i, a in enumerate(attacks, 1):
+                cost = getattr(a, "cost", 0)
+                dmg  = getattr(a, "base_damage", 0)
+                var  = getattr(a, "variance", 0)
+                print(f"  {i}) {a.name} (Dmg {dmg}±{var}, SP {cost})")
+            idx = self._ask_index(len(attacks))
+            return ("attack", attacks[idx])
+
         # Objet
         items = [row for row in inventory.list_summary() if row["kind"] == "item"]
         if not items:
@@ -54,7 +63,8 @@ class ConsoleIO:
             print(f"  {i}) {it['name']} x{it['qty']}")
         idx = self._ask_index(len(items))
         item_id = items[idx]["id"]
-        return ("item", item_id)
+        return ("item", item_id)         
+
 
     def choose_player_attack(self, player: Player, enemy: Enemy, options=None) -> Attack:
         """Menu simple: attaques d’arme spéciales + éventuelle attaque de classe + attaque basique."""

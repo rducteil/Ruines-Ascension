@@ -53,7 +53,7 @@ def load_player_classes(merge_into: Optional[Dict[str, PlayerClass]] = None) -> 
 
     result: Dict[str, PlayerClass] = {} if merge_into is None else merge_into
     for key, row in raw.items():
-        key_canon = (str(key) or "").strip().lower()
+        key = (str(key) or "").strip().lower()
         name = row.get("name", key)
         bonus = row.get("bonus_stats", {})
         bonus_stats = Stats(

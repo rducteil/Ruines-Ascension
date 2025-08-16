@@ -371,17 +371,54 @@ class GameLoop:
             self._grant_gold(g)
         if self.io:
             self.io.on_battle_end(self.player, enemy, victory=(self.player.hp > 0 and enemy.hp <= 0))
+        if self.io:
+            self.io.present_text(f"[DEBUG] Après combat → HP {self.player.hp}/{self.player.max_hp}, "
+                                f"SP {self.player.sp}/{self.player.max_sp}")
     
+    def _gather_player_attacks(self) -> list["Attack"]:
+        atks: list["Attack"] = []
+        # depuis le loadout
+        lo = self.loadouts.get(self.player)
+        if lo and getattr(lo, "primary", None): atks.append(lo.primary)
+        if lo and getattr(lo, "skill", None):   atks.append(lo.skill)
+        if lo and getattr(lo, "utility", None): atks.append(lo.utility)
+        # attaque de classe
+        if getattr(self.player, "class_attack", None):
+            atks.append(self.player.class_attack)
+        # attaques d'arme
+        if getattr(self.player, "weapon", None):
+            wep = self.player.weapon
+            if hasattr(wep, "get_available_attacks"):
+                atks.extend(wep.get_available_attacks())
+        return atks
+    
+    def _choose_player_attack(self, attacks: list["Attack"]) -> "Attack":
+        # UI console: menu d’attaques
+        if not attacks:
+            # secours: une frappe très basique si jamais
+            from core.attack import Attack
+            return Attack(name="Frappe", base_damage=4, variance=2, cost=0)
+
+        print("Choisis une attaque :")
+        for i, a in enumerate(attacks, 1):
+            cost = getattr(a, "cost", 0)
+            print(f"  {i}) {a.name} (SP {cost})")
+        while True:
+            s = input("> ")
+            if s.isdigit() and 1 <= int(s) <= len(attacks):
+                return attacks[int(s) - 1]
+
     def _choose_player_action(self, enemy: Enemy) -> Tuple[str, Any]:
         """Renvoie ('attack', Attack) ou ('item', item_id)."""
-        # 1) Si l'IO offre un menu d'action complet, on l'utilise
+        atks = self._list_player_attacks()
         if self.io and hasattr(self.io, "choose_player_action"):
-            return self.io.choose_player_action(self.player, enemy,
-                                                attacks=self._list_player_attacks(),
-                                                inventory=self.player_inventory)
-
-        # 2) Fallback : ancien comportement (attaque seulement)
-        return ("attack", self._list_player_attacks()[0])
+            res = self.io.choose_player_action(self.player, enemy, attacks=atks, inventory=self.player_inventory)
+            # tolérance: si l’IO renvoie un Attack tout seul
+            if not isinstance(res, tuple):
+                return ("attack", res)
+            return res
+        # fallback: première attaque dispo
+        return ("attack", atks[0] if atks else Attack(name="Attaque", base_damage=5, variance=2, cost=0))
 
     def _select_player_attack(self, enemy: Enemy) -> Attack:
         if self.io and hasattr(self.io, "choose_player_attack"):
@@ -500,7 +537,7 @@ class GameLoop:
         mgr = SupplyManager(self.player_inventory, self.wallet, self.loadouts)
         class_key = getattr(self.player, "player_class_key", "guerrier")
         offers: list[ShopOffer] = build_offers(zone_level=self.zone.level, player_class_key=class_key)  
-        offers = [o for o in offers if self._is_allowed(o["kind"], o["id"])]
+        offers = [o for o in offers if self._is_allowed(o)]
 
         # Si l'IO sait présenter un menu Supply, on le laisse piloter
         if self.io and hasattr(self.io, "choose_supply_action"):
@@ -669,11 +706,18 @@ class GameLoop:
         if self.io:
             self.io.present_text(f"+{amount} or ramassé.")
     
-    def _is_allowed(self, kind: Literal["weapon","armor","artifact"], item_id: str) -> bool:
-        """Retourne True si l’objet est autorisé pour la zone courante (ou non restreint)."""
-        zones = self.equip_zone_index.get(kind, {}).get(item_id, [])
-        # pas de restriction → autorisé, sinon zone courante doit être listée
-        return (not zones) or (self.zone.zone_type.name in zones)
+    def _is_allowed(self, offer: ShopOffer) -> bool:
+        """Filtre d'offres du shop selon l'état de la partie."""
+        # exemple: on n’affiche pas le parchemin de classe si le joueur en a déjà une
+        if offer.kind == "class_scroll" and getattr(self.player, "class_attack", None):
+            return False
+
+        # exemple: items toujours autorisés (tu peux ajouter des règles d’inventaire ici)
+        if offer.kind == "item":
+            return True
+
+        # fallback
+        return True
 
     def _list_player_attacks(self) -> list[Attack]:
         opts: list[Attack] = []

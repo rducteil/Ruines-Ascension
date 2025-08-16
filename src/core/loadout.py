@@ -18,3 +18,4 @@ class Loadout:
         if slot not in ("primary", "skill", "utility"):
             raise ValueError("slot must be 'primary' | 'skill' | 'utility'")
         setattr(self, slot, attack)
+
