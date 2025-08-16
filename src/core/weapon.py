@@ -15,11 +15,15 @@ class Weapon(Equipment):
 
     def __init__(self, 
                  name: str, 
-                 durability: Resource, 
+                 durability_max: int | Resource, 
                  bonus_attack: int = 0, 
                  special_attacks: Optional[List[Attack]] = None, 
                  description: str = ""):
-        super().__init__(name=name, durability=durability, description=description)
+        if isinstance(durability_max, Resource):
+            dur = durability_max
+        else:
+            dur = Resource(current=durability_max, maximum=durability_max)
+        super().__init__(name=name, durability=dur, description=description)
         self.bonus_attack: int = int(bonus_attack)
         self.special_attacks: List[Attack] = list(special_attacks or [])
 

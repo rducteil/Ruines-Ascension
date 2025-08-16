@@ -15,10 +15,14 @@ class Armor(Equipment):
 
     def __init__(self, 
                  name: str, 
-                 durability: Resource, 
+                 durability_max: int | Resource, 
                  bonus_defense: int = 0, 
                  description: str = "") -> None:
-        super().__init__(name=name, durability=durability, description=description)
+        if isinstance(durability_max, Resource):
+            dur = durability_max
+        else:
+            dur = Resource(current=durability_max, maximum=durability_max)
+        super().__init__(name=name, durability=dur, description=description)
         self.bonus_defense: int = int(bonus_defense)
 
     # --- stat bonuses ---

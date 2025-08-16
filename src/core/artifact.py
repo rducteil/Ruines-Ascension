@@ -16,12 +16,16 @@ class Artifact(Equipment):
 
     def __init__(self, 
                  name: str, 
-                 durability: Resource, 
+                 durability_max: int | Resource, 
                  atk_pct=0.0, 
                  def_pct=0.0, 
                  lck_pct=0.0, 
                  description: str = ""):
-        super().__init__(name=name, durability=durability, description=description)
+        if isinstance(durability_max, Resource):
+            dur = durability_max
+        else:
+            dur = Resource(current=durability_max, maximum=durability_max)
+        super().__init__(name=name, durability=dur, description=description)
         self.atk_pct = int(atk_pct)
         self.def_pct = int(def_pct)
         self.lck_pct = int(lck_pct)
