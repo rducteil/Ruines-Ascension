@@ -270,7 +270,7 @@ def dict_to_game(data: dict, *, io=None):
 
     p = data["player"]
     name = p["name"]
-    class_key = p["class_key"]
+    class_key = (p["class_key"] or "").lower()
     base_stats = Stats(attack=p["base_stats"]["attack"], defense=p["base_stats"]["defense"], luck=p["base_stats"]["luck"])
     base_hp_max = int(p["hp"]["maximum"])
     base_sp_max = int(p["sp"]["maximum"])

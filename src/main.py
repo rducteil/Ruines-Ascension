@@ -20,7 +20,7 @@ def main():
     # Crée un joueur (exemple)
     p = Player(
         name="Moi",
-        player_class_key="guerrier",
+        player_class_key="Guerrier",
         base_stats=Stats(attack=10, defense=10, luck=5),
         base_hp_max=50,
         base_sp_max=20,
@@ -29,7 +29,7 @@ def main():
     io = ConsoleIO()
     loop = GameLoop(player=p, io=io, seed=42)
     loop.loadouts = LoadoutManager
-    loop.loadouts.set(p, DEFAULT_LOADOUTS[p.player_class_key])
+    loop.loadouts.set(p, DEFAULT_LOADOUTS[p.player_class_key.lower()])
     loop.run()
 
 if __name__ == "__main__":

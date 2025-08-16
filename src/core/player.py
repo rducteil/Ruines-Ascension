@@ -37,7 +37,7 @@ class Player(Entity):
         self.artifact: Optional[Equipment] = None
 
         # Apply class bonuses (stats + resources) if provided
-        self.player_class_key = player_class_key
+        self.player_class_key = (player_class_key or "").strip().lower()
         self.player_class: PlayerClass = CLASS_REG[player_class_key]
         self.player_class.apply_to(self)
 
