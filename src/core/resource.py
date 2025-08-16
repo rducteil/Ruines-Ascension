@@ -1,5 +1,7 @@
 from dataclasses import dataclass
-from core.utils import clamp
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from core.utils import clamp
 
 @dataclass
 class Resource:

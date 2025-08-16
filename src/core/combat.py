@@ -1,15 +1,15 @@
 from __future__ import annotations
 """Moteur de combat (agnostique de l'I/O). Gère SP, dégâts, crit, usure."""
 
-from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any, Callable, Protocol, TYPE_CHECKING
 import random
 from core.utils  import clamp
-from core.effects import Effect 
+
 if TYPE_CHECKING:
     from core.attack import Attack
     from core.entity import Entity
+    from core.effects import Effect 
 from core.combat_types import CombatContext, CombatEvent, CombatResult
 
 # ---- Protocols facultatifs (pour aider le typage sans import circulaire) ----
