@@ -298,16 +298,16 @@ def load_enemy_blueprints(attacks_registry: dict[str, Attack]) -> dict[str, Enem
                     )
                     hp = int(row.get("hp_max", 1))
                     sp = int(row.get("sp_max", 0))
+                    gold_min = int(row.get("gold_min", 0))
+                    gold_max = int(row.get("gold_max", 0))
                     atk_keys: list[str] = list(row.get("attacks", []))
                     atk_objs = [attacks_registry[k] for k in atk_keys if k in attacks_registry]
                     weights = list(row.get("attack_weights", [])) or [1] * max(1, len(atk_objs))
                     scaling = dict(row.get("scaling", {}))
                     res[eid] = EnemyBlueprint(
                         enemy_id=eid, name=name, base_stats=base_stats,
-                        hp_max=hp, sp_max=sp, attacks=atk_objs, attack_weights=weights, scaling=scaling
+                        hp_max=hp, sp_max=sp, attacks=atk_objs, attack_weights=weights, scaling=scaling, gold_max=gold_max, gold_min=gold_min
                     )
-                    bp.gold_min = int(row.get("gold_min", 0))
-                    bp.gold_max = int(row.get("gold_max", 0))
                 except Exception:
                     continue
     return res
