@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import random
 from enum import Enum, auto
-from typing import Callable, List, Optional, Protocol, Sequence, Tuple, Any
+from typing import Callable, List, Optional, Protocol, Sequence, Tuple, Any, Literal
 
 from core.player import Player
 from core.enemy import Enemy
@@ -25,6 +25,7 @@ from core.supply import SupplyManager
 from content.shop_offers import build_offers, REST_HP_PCT, REST_SP_PCT, REPAIR_COST_PER_POINT, ShopOffer
 from core.event_engine import EventEngine
 from core.save import save_to_file, load_from_file
+from core.data_loader import load_enemy_blueprints, load_encounter_tables, load_equipment_banks, load_equipment_zone_index
 
 
 # =========================
@@ -179,6 +180,7 @@ class GameLoop:
         # Zone courante
         self.zone = Zone(zone_type=initial_zone or self._rng_choice(ZONE_TYPE_LIST), level=start_level)
         self.zone_state = ZoneState(zone_type=self.zone.zone_type, level=self.zone.level)
+        self.equip_zone_index = load_equipment_zone_index()
         self.effects = EffectManager()
         self.player_inventory = Inventory(capacity=12)
         self.loadouts = LoadoutManager()
@@ -200,6 +202,9 @@ class GameLoop:
             enemy_factory=None
         )
         self.engine = CombatEngine(seed=seed)  # CombatEngine gère crits, usure, etc.
+        self.enemy_blueprints = load_enemy_blueprints(getattr(self, "attacks_reg", {}))
+        self.encounter_tables = load_encounter_tables()
+        self.weapon_bank, self.armor_bank, self.artifact_bank = load_equipment_banks()
         self.running = True
 
     # -------------
@@ -359,6 +364,11 @@ class GameLoop:
             # Fin du tour de l'enemie; tick les effets
             self._tick_end_of_turn(attacker=enemy, defender=self.player)
 
+        # fin du combat
+        victory = (self.player.hp > 0 and enemy.hp <= 0)
+        if victory:
+            g = self._gold_reward_for(enemy, is_boss=getattr(enemy, "is_boss", False))
+            self._grant_gold(g)
         if self.io:
             self.io.on_battle_end(self.player, enemy, victory=(self.player.hp > 0 and enemy.hp <= 0))
     
@@ -385,8 +395,17 @@ class GameLoop:
         return Attack(name="Attaque", base_damage=5, variance=2, cost=0)
 
     def _select_enemy_attack(self, enemy: Enemy) -> Attack:
-        # TODO: brancher une vraie IA (enemy.choose_action)
-        return Attack(name="Griffe", base_damage=4, variance=1, cost=0)
+        if getattr(enemy, "attacks", None):
+            atks = enemy.attacks; ws = getattr(enemy, "attack_weights", [1]*len(atks))
+            pairs = list(zip(atks, ws))
+            total = sum(ws)
+            r = self.rng.uniform(0, total); acc = 0.0
+            for atk, w in pairs:
+                acc += w
+                if r <= acc:
+                    return atk
+            return atks[-1]
+        return Attack(name="Coup maladroit", base_damage=4, variance=2, cost=0)
     
     def _use_item_in_combat(self, item_id: str) -> CombatResult:
         events: list[CombatEvent] = []
@@ -480,7 +499,8 @@ class GameLoop:
         """Ravitaillement: repos, réparation, achats (parchemin d’attaque de classe inclus)."""
         mgr = SupplyManager(self.player_inventory, self.wallet, self.loadouts)
         class_key = getattr(self.player, "player_class_key", "guerrier")
-        offers = build_offers(zone_level=self.zone.level, player_class_key=class_key)
+        offers: list[ShopOffer] = build_offers(zone_level=self.zone.level, player_class_key=class_key)  
+        offers = [o for o in offers if self._is_allowed(o["kind"], o["id"])]
 
         # Si l'IO sait présenter un menu Supply, on le laisse piloter
         if self.io and hasattr(self.io, "choose_supply_action"):
@@ -532,7 +552,23 @@ class GameLoop:
     # Utilitaires
     # -------------
 
-    def _spawn_enemy(self, zone: Zone, *, is_boss: bool = False) -> Enemy:
+    def _spawn_enemy(self, zone: "Zone", is_boss: bool = False):
+        # 1) essai via encounter tables (si présentes)
+        zkey = zone.zone_type.name  # ex "RUINS"
+        table = self.encounter_tables.get(zkey)
+        if table:
+            bucket = table["boss"] if is_boss else table["normal"]
+            if bucket:
+                pairs = [(row["enemy_id"], int(row.get("weight", 1))) for row in bucket]
+                enemy_id = self._weighted_pick(pairs)
+                bp = self.enemy_blueprints.get(enemy_id)
+                if bp:
+                    return bp.build(level=zone.level)
+
+        # 2) fallback: ton ancienne logique
+        return self._spawn_enemy_fallback(zone, is_boss)
+    
+    def _spawn_enemy_fallback(self, zone: Zone, *, is_boss: bool = False) -> Enemy:
         """Fabrique un ennemi en fonction du type de zone et du niveau (scaling simple)."""
         # Ex. scaling très simple (à équilibrer selon ton jeu)
         lvl = zone.level
@@ -589,6 +625,55 @@ class GameLoop:
         # 3) fallback
         import copy
         return copy.deepcopy(eff)
+
+    def _weighted_pick(self, pairs: list[tuple[str, int]]) -> str:
+        total = sum(w for _, w in pairs) or 1
+        r = self.rng.uniform(0, total)
+        acc = 0.0
+        for eid, w in pairs:
+            acc += w
+            if r <= acc:
+                return eid
+        return pairs[-1][0]
+
+    def _gold_reward_for(self, enemy: Enemy, is_boss: bool) -> int:
+        """Calcule l'or gagné. Si le blueprint de l'ennemi fournit des bornes, on les utilise.
+        Sinon: formule par défaut en fonction du niveau + stats."""
+        # 1) si tu construis l'ennemi depuis un blueprint, garde son id sur l'instance:
+        # setattr(e, "enemy_id", self.enemy_id)  ← à faire dans EnemyBlueprint.build()
+        reward = None
+        eid = getattr(enemy, "enemy_id", None)
+        if eid and hasattr(self, "enemy_blueprints"):
+            bp = self.enemy_blueprints.get(eid)
+            if bp and hasattr(bp, "gold_min") and hasattr(bp, "gold_max"):
+                lo = int(getattr(bp, "gold_min"))
+                hi = int(getattr(bp, "gold_max"))
+                if hi < lo: hi = lo
+                reward = self.rng.randint(lo, hi)
+
+        if reward is None:
+            # 2) fallback: niveau + stats
+            lvl = getattr(self.zone, "level", 1)
+            atk = getattr(enemy.base_stats, "attack", 0)
+            df  = getattr(enemy.base_stats, "defense", 0)
+            base = 8 + 2*lvl + (atk + df)//4
+            jitter = self.rng.uniform(0.85, 1.15)
+            reward = max(1, int(base * jitter))
+
+        if is_boss:
+            reward = int(reward * 4)  # prime boss
+        return reward
+
+    def _grant_gold(self, amount: int) -> None:
+        self.wallet.add(amount)
+        if self.io:
+            self.io.present_text(f"+{amount} or ramassé.")
+    
+    def _is_allowed(self, kind: Literal["weapon","armor","artifact"], item_id: str) -> bool:
+        """Retourne True si l’objet est autorisé pour la zone courante (ou non restreint)."""
+        zones = self.equip_zone_index.get(kind, {}).get(item_id, [])
+        # pas de restriction → autorisé, sinon zone courante doit être listée
+        return (not zones) or (self.zone.zone_type.name in zones)
 
     def _list_player_attacks(self) -> list[Attack]:
         opts: list[Attack] = []

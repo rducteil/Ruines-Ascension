@@ -11,7 +11,7 @@ Fichiers attendus (dans src/data/ ou mods/env):
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Callable
 import json
 from pathlib import Path
 from copy import deepcopy
@@ -23,7 +23,12 @@ from core.item import Consumable, Item
 from core.stats import Stats
 from core.player_class import PlayerClass
 from content.effects_bank import make_effect
-from content.shop_offers import ShopOffer  # on garde le type existant
+from content.shop_offers import ShopOffer
+from core.enemy import Enemy  
+from core.weapon import Weapon
+from core.armor import Armor
+from core.artifact import Artifact
+
 
 # ---------- Helpers JSON ----------
 
@@ -227,3 +232,213 @@ def load_shop_offers() -> Tuple[List[ShopOffer], Dict[str, int]]:
         "repair_cost_per_point": int(conf_raw.get("repair_cost_per_point", 2)),
     }
     return offers, cfg
+
+# -------- Ennemis --------
+
+@dataclass
+class EnemyBlueprint:
+    enemy_id: str
+    name: str
+    base_stats: Stats
+    hp_max: int
+    sp_max: int
+    attacks: list[Attack]
+    attack_weights: list[int]
+    scaling: dict
+    gold_min: int = 0
+    gold_max: int = 0
+
+    def build(self, *, level: int) -> Enemy:
+        # applique un scaling simple
+        atk = self.base_stats.attack + int(self.scaling.get("attack_per_level", 0) * max(0, level - 1))
+        df  = self.base_stats.defense + int(self.scaling.get("defense_per_level", 0) * max(0, level - 1))
+        lk  = self.base_stats.luck   # on ne scale pas la luck par défaut
+        hp  = self.hp_max + int(self.scaling.get("hp_per_level", 0) * max(0, level - 1))
+
+        e = Enemy(
+            name=self.name,
+            base_stats=Stats(attack=atk, defense=df, luck=lk),
+            base_hp_max=hp,
+            base_sp_max=self.sp_max
+        )
+        # on accroche la liste d'attaques côté ennemi pour que _select_enemy_attack puisse piocher
+        setattr(e, "attacks", list(self.attacks))
+        setattr(e, "attack_weights", list(self.attack_weights or [1] * max(1, len(self.attacks))))
+        setattr(e, "enemy_id", self.enemy_id)
+        return e
+
+
+def load_enemy_blueprints(attacks_registry: dict[str, Attack]) -> dict[str, EnemyBlueprint]:
+    """Lit data/enemies/*.json ; chaque .json peut être un dict (1 ennemi) ou une liste d’ennemis."""
+    from core.data_paths import default_data_dirs
+    from pathlib import Path
+    import json
+
+    res: dict[str, EnemyBlueprint] = {}
+    for base in default_data_dirs():
+        folder = Path(base) / "enemies"
+        if not folder.is_dir():
+            continue
+        for path in folder.glob("*.json"):
+            try:
+                raw = json.loads(path.read_text(encoding="utf-8"))
+                rows = raw if isinstance(raw, list) else [raw]
+            except Exception:
+                continue
+
+            for row in rows:
+                try:
+                    eid = row["id"]
+                    name = row.get("name", eid)
+                    bs = row.get("stats", {})
+                    base_stats = Stats(
+                        attack=int(bs.get("attack", 0)),
+                        defense=int(bs.get("defense", 0)),
+                        luck=int(bs.get("luck", 0)),
+                    )
+                    hp = int(row.get("hp_max", 1))
+                    sp = int(row.get("sp_max", 0))
+                    atk_keys: list[str] = list(row.get("attacks", []))
+                    atk_objs = [attacks_registry[k] for k in atk_keys if k in attacks_registry]
+                    weights = list(row.get("attack_weights", [])) or [1] * max(1, len(atk_objs))
+                    scaling = dict(row.get("scaling", {}))
+                    res[eid] = EnemyBlueprint(
+                        enemy_id=eid, name=name, base_stats=base_stats,
+                        hp_max=hp, sp_max=sp, attacks=atk_objs, attack_weights=weights, scaling=scaling
+                    )
+                    bp.gold_min = int(row.get("gold_min", 0))
+                    bp.gold_max = int(row.get("gold_max", 0))
+                except Exception:
+                    continue
+    return res
+
+def load_encounter_tables() -> dict[str, dict[str, list[dict]]]:
+    """Lit:
+    - soit plusieurs fichiers data/encounters/*.json avec {zone_type, normal, boss}
+    - soit un seul fichier 'mob_encounter.json' qui mappe { "RUINS": {...}, "CAVES": {...}, ... }.
+    Retourne {zone_name: {"normal":[{enemy_id,weight}], "boss":[...]}}.
+    """
+    from core.data_paths import default_data_dirs
+    from pathlib import Path
+    import json
+
+    res: dict[str, dict[str, list[dict]]] = {}
+    for base in default_data_dirs():
+        folder = Path(base) / "encounters"
+        if not folder.is_dir():
+            continue
+        for path in folder.glob("*.json"):
+            try:
+                raw = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+
+            # format 1: { "zone_type": "...", "normal": [...], "boss": [...] }
+            if isinstance(raw, dict) and "zone_type" in raw:
+                zname = str(raw.get("zone_type", "")).upper()
+                res[zname] = {
+                    "normal": list(raw.get("normal", [])),
+                    "boss": list(raw.get("boss", [])),
+                }
+                continue
+
+            # format 2: { "RUINS": {...}, "CAVES": {...}, ... }
+            if isinstance(raw, dict):
+                for zname, bucket in raw.items():
+                    if not isinstance(bucket, dict):
+                        continue
+                    res[str(zname).upper()] = {
+                        "normal": list(bucket.get("normal", [])),
+                        "boss": list(bucket.get("boss", [])),
+                    }
+    return res
+
+
+# -------- Équipements --------
+
+def load_equipment_zone_index() -> dict[str, dict[str, list[str]]]:
+    """Retourne {"weapon": {id:[zones]}, "armor": {...}, "artifact": {...}}."""
+    from core.data_paths import default_data_dirs
+    from pathlib import Path, PurePath
+    import json
+    out = {"weapon": {}, "armor": {}, "artifact": {}}
+    for base in default_data_dirs():
+        eqdir = Path(base) / "equipment"
+        if not eqdir.is_dir():
+            continue
+        for fname, kind in (("weapons.json","weapon"),("armors.json","armor"),("artifacts.json","artifact")):
+            p = eqdir / fname
+            if not p.exists(): continue
+            try:
+                rows = json.loads(p.read_text(encoding="utf-8"))
+                for r in rows:
+                    zones = [z.upper() for z in r.get("zones", [])]
+                    out[kind][r["id"]] = zones
+            except Exception:
+                pass
+    return out
+
+def load_equipment_banks() -> tuple[dict[str, Callable[[], Weapon]],
+                                    dict[str, Callable[[], Armor]],
+                                    dict[str, Callable[[], Artifact]]]:
+    """Lit src/data/equipment/*.json et retourne 3 factories {id: ()->instance}."""
+    from core.data_paths import default_data_dirs
+    from pathlib import Path
+    import json
+
+    w_fact: dict[str, Callable[[], Weapon]] = {}
+    a_fact: dict[str, Callable[[], Armor]] = {}
+    r_fact: dict[str, Callable[[], Artifact]] = {}
+
+    for base in default_data_dirs():
+        eqdir = Path(base) / "equipment"
+        if not eqdir.is_dir():
+            continue
+
+        # weapons
+        wpath = eqdir / "weapons.json"
+        if wpath.exists():
+            try:
+                rows = json.loads(wpath.read_text(encoding="utf-8"))
+                for row in rows:
+                    wid = row["id"]; name = row.get("name", wid)
+                    dmax = int(row.get("durability_max", 10))
+                    batk = int(row.get("bonus_attack", 0))
+                    def _wf(_name=name, _dmax=dmax, _batk=batk):
+                        return Weapon(name=_name, durability_max=_dmax, bonus_attack=_batk)
+                    w_fact[wid] = _wf
+            except Exception:
+                pass
+
+        # armors
+        apath = eqdir / "armors.json"
+        if apath.exists():
+            try:
+                rows = json.loads(apath.read_text(encoding="utf-8"))
+                for row in rows:
+                    aid = row["id"]; name = row.get("name", aid)
+                    dmax = int(row.get("durability_max", 12))
+                    bdef = int(row.get("bonus_defense", 0))
+                    def _af(_name=name, _dmax=dmax, _bdef=bdef):
+                        return Armor(name=_name, durability_max=_dmax, bonus_defense=_bdef)
+                    a_fact[aid] = _af
+            except Exception:
+                pass
+
+        # artifacts
+        rpath = eqdir / "artifacts.json"
+        if rpath.exists():
+            try:
+                rows = json.loads(rpath.read_text(encoding="utf-8"))
+                for row in rows:
+                    rid = row["id"]; name = row.get("name", rid)
+                    dmax = int(row.get("durability_max", 8))
+                    atk_pct = float(row.get("atk_pct", 0.0))
+                    def_pct = float(row.get("def_pct", 0.0))
+                    def _rf(_name=name, _dmax=dmax, _ap=atk_pct, _dp=def_pct):
+                        return Artifact(name=_name, durability_max=_dmax, atk_pct=_ap, def_pct=_dp)
+                    r_fact[rid] = _rf
+            except Exception:
+                pass
+
+    return w_fact, a_fact, r_fact

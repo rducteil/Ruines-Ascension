@@ -4,6 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
+
+
 # Items vendus (ids définis dans content/items.py)
 SHOP_ITEMS = [
     {"item_id": "potion_hp_s", "name": "Petite potion de soin", "base_price": 10},

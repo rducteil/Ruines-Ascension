@@ -1,0 +1,81 @@
+[
+  { "id": "ruins_slime", "name": "Gelée rouillée",
+    "stats": { "attack": 8, "defense": 4, "luck": 2 }, "hp_max": 34, "sp_max": 8,
+    "attacks": ["FRAPPER"], "attack_weights": [1],
+    "scaling": { "hp_per_level": 6, "attack_per_level": 2, "defense_per_level": 1 }
+  },
+  { "id": "ruins_rat", "name": "Rat géant des ruines",
+    "stats": { "attack": 10, "defense": 3, "luck": 3 }, "hp_max": 30, "sp_max": 8,
+    "attacks": ["COUP_RAPIDE"], "attack_weights": [1],
+    "scaling": { "hp_per_level": 5, "attack_per_level": 2 }
+  },
+  { "id": "ruins_golem", "name": "Golem de pierre",
+    "stats": { "attack": 18, "defense": 12, "luck": 2 }, "hp_max": 92, "sp_max": 12,
+    "attacks": ["HEURT", "ECRASEMENT"], "attack_weights": [2, 1],
+    "scaling": { "hp_per_level": 12, "attack_per_level": 3, "defense_per_level": 2 }
+  },
+
+  { "id": "caves_bat", "name": "Chauve-souris cavernicole",
+    "stats": { "attack": 9, "defense": 3, "luck": 4 }, "hp_max": 28, "sp_max": 10,
+    "attacks": ["COUP_RAPIDE"], "attack_weights": [1],
+    "scaling": { "hp_per_level": 5, "attack_per_level": 2 }
+  },
+  { "id": "caves_spider", "name": "Araignée des profondeurs",
+    "stats": { "attack": 11, "defense": 4, "luck": 3 }, "hp_max": 32, "sp_max": 12,
+    "attacks": ["LAME_TOXIQUE"], "attack_weights": [1],
+    "scaling": { "hp_per_level": 6, "attack_per_level": 2, "defense_per_level": 1 }
+  },
+  { "id": "caves_troll", "name": "Troll des cavernes",
+    "stats": { "attack": 17, "defense": 10, "luck": 2 }, "hp_max": 88, "sp_max": 10,
+    "attacks": ["HEURT", "ECRASEMENT"], "attack_weights": [2, 1],
+    "scaling": { "hp_per_level": 11, "attack_per_level": 3, "defense_per_level": 2 }
+  },
+
+  { "id": "forest_wolf", "name": "Loup de la canopée",
+    "stats": { "attack": 10, "defense": 4, "luck": 4 }, "hp_max": 34, "sp_max": 10,
+    "attacks": ["COUP_RAPIDE"], "attack_weights": [1],
+    "scaling": { "hp_per_level": 6, "attack_per_level": 2 }
+  },
+  { "id": "forest_druid", "name": "Druide sylvestre",
+    "stats": { "attack": 9, "defense": 5, "luck": 5 }, "hp_max": 36, "sp_max": 16,
+    "attacks": ["ONDE", "SIPHON"], "attack_weights": [2, 1],
+    "scaling": { "hp_per_level": 7, "attack_per_level": 2, "defense_per_level": 1 }
+  },
+  { "id": "forest_ent", "name": "Ent séculaire",
+    "stats": { "attack": 16, "defense": 14, "luck": 2 }, "hp_max": 100, "sp_max": 12,
+    "attacks": ["HEURT", "GARDE", "ECRASEMENT"], "attack_weights": [2, 1, 1],
+    "scaling": { "hp_per_level": 12, "attack_per_level": 3, "defense_per_level": 2 }
+  },
+
+  { "id": "desert_scorpion", "name": "Scorpion des dunes",
+    "stats": { "attack": 12, "defense": 5, "luck": 3 }, "hp_max": 36, "sp_max": 10,
+    "attacks": ["LAME_TOXIQUE"], "attack_weights": [1],
+    "scaling": { "hp_per_level": 6, "attack_per_level": 2, "defense_per_level": 1 }
+  },
+  { "id": "desert_raider", "name": "Maraudeur du désert",
+    "stats": { "attack": 12, "defense": 4, "luck": 4 }, "hp_max": 34, "sp_max": 12,
+    "attacks": ["PERCEE", "FENTE"], "attack_weights": [2, 1],
+    "scaling": { "hp_per_level": 6, "attack_per_level": 2 }
+  },
+  { "id": "desert_mummy", "name": "Momie antique",
+    "stats": { "attack": 15, "defense": 11, "luck": 2 }, "hp_max": 96, "sp_max": 18,
+    "attacks": ["ONDE", "SIPHON"], "attack_weights": [2, 1],
+    "scaling": { "hp_per_level": 12, "attack_per_level": 3, "defense_per_level": 2 }
+  },
+
+  { "id": "swamp_leech", "name": "Sangsue des marais",
+    "stats": { "attack": 10, "defense": 4, "luck": 3 }, "hp_max": 32, "sp_max": 10,
+    "attacks": ["LAME_TOXIQUE"], "attack_weights": [1],
+    "scaling": { "hp_per_level": 6, "attack_per_level": 2 }
+  },
+  { "id": "swamp_ghoul", "name": "Goule suintante",
+    "stats": { "attack": 12, "defense": 6, "luck": 2 }, "hp_max": 38, "sp_max": 12,
+    "attacks": ["FRAPPER", "HEURT"], "attack_weights": [2, 1],
+    "scaling": { "hp_per_level": 7, "attack_per_level": 2, "defense_per_level": 1 }
+  },
+  { "id": "swamp_hydra", "name": "Hydre des tourbières",
+    "stats": { "attack": 20, "defense": 12, "luck": 3 }, "hp_max": 110, "sp_max": 18,
+    "attacks": ["ECRASEMENT", "LAME_TOXIQUE"], "attack_weights": [2, 1],
+    "scaling": { "hp_per_level": 14, "attack_per_level": 4, "defense_per_level": 2 }
+  }
+]

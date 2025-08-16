@@ -1,0 +1,37 @@
+{
+  "zone": "FOREST",
+  "events": [
+    {
+      "id": "forest_sprite_01",
+      "weight": 6,
+      "text": { "fr": "Un esprit sylvestre t’observe depuis un tronc moussu." },
+      "options": [
+        { "id": "listen", "label": { "fr": "Écouter ses murmures" }, "effects": [{ "type": "apply_effect", "effect_id": "blessing_atk", "duration": 2, "potency": 3 }] },
+        { "id": "hunt", "label": { "fr": "Le chasser" }, "effects": [{ "type": "start_combat", "boss": false }] },
+        {
+          "id": "berries",
+          "label": { "fr": "Cueillir des baies sauvages" },
+          "requires": [{ "stat": "luck", "gte": 8 }],
+          "effects": [{ "type": "heal_hp_pct", "amount_pct": 25 }],
+          "on_fail": [{ "type": "damage_hp", "amount": 5 }]
+        }
+      ]
+    },
+    {
+      "id": "forest_grove_01",
+      "weight": 5,
+      "text": { "fr": "Un bosquet calme et parfumé. La lumière filtre doucement." },
+      "options": [
+        {
+          "id": "meditate",
+          "label": { "fr": "Méditer" },
+          "effects": [
+            { "type": "heal_hp_pct", "amount_pct": 30 },
+            { "type": "apply_effect", "effect_id": "ward_def", "duration": 1, "potency": 4 }
+          ]
+        },
+        { "id": "profane", "label": { "fr": "Profaner le lieu" }, "effects": [{ "type": "start_combat", "boss": false }] }
+      ]
+    }
+  ]
+}

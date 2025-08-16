@@ -1,0 +1,7 @@
+[
+  { "id": "cuir_brun",    "name": "Cuir brun",        "durability_max": 16, "bonus_defense": 2, "zones": ["RUINS"] },
+  { "id": "harnois_caverne","name":"Harnois des cavernes","durability_max": 14, "bonus_defense": 3, "zones": ["CAVES"] },
+  { "id": "cape_verte",   "name": "Cape verte",       "durability_max": 14, "bonus_defense": 2, "zones": ["FOREST"] },
+  { "id": "armure_voilee","name": "Armure voilée",    "durability_max": 12, "bonus_defense": 2, "zones": ["DESERT"] },
+  { "id": "cuir_étanche", "name": "Cuir étanche",     "durability_max": 16, "bonus_defense": 3, "zones": ["SWAMP"] }
+]

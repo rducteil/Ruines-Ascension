@@ -1,0 +1,7 @@
+[
+  { "id": "amu_force_I",   "name": "Amulette de force I", "durability_max": 10, "atk_pct": 0.10, "def_pct": 0.0,  "zones": ["RUINS"] },
+  { "id": "amu_protect_I", "name": "Amulette de protection I","durability_max": 10, "atk_pct": 0.0,  "def_pct": 0.10, "zones": ["CAVES"] },
+  { "id": "totem_bois",    "name": "Totem de bois",        "durability_max": 10, "atk_pct": 0.05, "def_pct": 0.05, "zones": ["FOREST"] },
+  { "id": "talisman_chaleur","name":"Talisman de chaleur", "durability_max": 10, "atk_pct": 0.08, "def_pct": 0.0,  "zones": ["DESERT"] },
+  { "id": "bague_mycelium","name": "Bague de mycélium",    "durability_max": 10, "atk_pct": 0.0,  "def_pct": 0.12, "zones": ["SWAMP"] }
+]

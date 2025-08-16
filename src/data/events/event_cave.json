@@ -1,0 +1,50 @@
+{
+  "zone": "CAVES",
+  "events": [
+    {
+      "id": "caves_shrine_01",
+      "weight": 6,
+      "text": { "fr": "Un petit sanctuaire couvert de spores lumineuses." },
+      "options": [
+        {
+          "id": "harvest",
+          "label": { "fr": "Récolter les spores" },
+          "effects": [{ "type": "give_gold", "amount": 12 }],
+          "on_fail": [
+            { "type": "apply_effect", "effect_id": "poison", "duration": 2, "potency": 3 },
+            { "type": "damage_hp", "amount": 6 }
+          ]
+        },
+        {
+          "id": "pray",
+          "label": { "fr": "Prier en silence" },
+          "effects": [{ "type": "apply_effect", "effect_id": "ward_def", "duration": 2, "potency": 4 }]
+        },
+        { "id": "smash", "label": { "fr": "Briser l’autel" }, "effects": [{ "type": "start_combat", "boss": false }] }
+      ]
+    },
+    {
+      "id": "caves_collapse_01",
+      "weight": 5,
+      "text": { "fr": "La voûte grince... un éboulement menace." },
+      "options": [
+        {
+          "id": "run",
+          "label": { "fr": "Courir !" },
+          "requires": [{ "stat": "luck", "gte": 7 }],
+          "effects": [{ "type": "give_gold", "amount": 15 }],
+          "on_fail": [{ "type": "damage_hp", "amount": 8 }]
+        },
+        {
+          "id": "brace",
+          "label": { "fr": "Soutenir la voûte" },
+          "effects": [
+            { "type": "damage_hp", "amount": 4 },
+            { "type": "give_gold", "amount": 20 }
+          ]
+        },
+        { "id": "retreat", "label": { "fr": "Rebrousser chemin" }, "effects": [] }
+      ]
+    }
+  ]
+}

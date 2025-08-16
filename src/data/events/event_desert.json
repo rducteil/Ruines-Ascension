@@ -1,0 +1,36 @@
+{
+  "zone": "DESERT",
+  "events": [
+    {
+      "id": "desert_mirage_01",
+      "weight": 6,
+      "text": { "fr": "Un mirage au loin… oasis ou illusion ?" },
+      "options": [
+        {
+          "id": "follow",
+          "label": { "fr": "Suivre le mirage" },
+          "requires": [{ "stat": "luck", "gte": 10 }],
+          "effects": [{ "type": "give_gold", "amount": 35 }],
+          "on_fail": [{ "type": "damage_hp", "amount": 7 }]
+        },
+        { "id": "ignore", "label": { "fr": "Ignorer et se concentrer" }, "effects": [{ "type": "apply_effect", "effect_id": "blessing_atk", "duration": 1, "potency": 2 }] }
+      ]
+    },
+    {
+      "id": "desert_caravan_01",
+      "weight": 5,
+      "text": { "fr": "Une caravane abandonnée, à moitié ensevelie." },
+      "options": [
+        { "id": "search", "label": { "fr": "Fouiller les tentes" }, "effects": [{ "type": "give_gold", "amount": 25 }] },
+        {
+          "id": "chest",
+          "label": { "fr": "Forcer un coffre scellé" },
+          "requires": [{ "stat": "attack", "gte": 20 }],
+          "effects": [{ "type": "give_gold", "amount": 60 }],
+          "on_fail": [{ "type": "start_combat", "boss": false }]
+        },
+        { "id": "leave", "label": { "fr": "Partir" }, "effects": [] }
+      ]
+    }
+  ]
+}

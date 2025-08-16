@@ -1,0 +1,54 @@
+{
+  "zone": "RUINS",
+  "events": [
+    {
+      "id": "ruins_altar_01",
+      "weight": 8,
+      "text": { "fr": "Un autel couvert de poussière, gravé de symboles oubliés." },
+      "options": [
+        {
+          "id": "pray",
+          "label": { "fr": "Prier" },
+          "requires": [{ "stat": "luck", "gte": 10 }],
+          "effects": [
+            { "type": "heal_hp_pct", "amount_pct": 20 },
+            { "type": "apply_effect", "effect_id": "blessing_atk", "duration": 2, "potency": 3 }
+          ],
+          "on_fail": [{ "type": "damage_hp", "amount": 8 }]
+        },
+        {
+          "id": "steal",
+          "label": { "fr": "Voler l'offrande" },
+          "effects": [{ "type": "give_gold", "amount": 25 }]
+        }
+      ]
+    },
+    {
+      "id": "ruins_library_01",
+      "weight": 5,
+      "text": { "fr": "Une bibliothèque effondrée. Des grimoires épars sur le sol." },
+      "options": [
+        {
+          "id": "read",
+          "label": { "fr": "Parcourir un grimoire" },
+          "requires": [{ "stat": "luck", "gte": 6 }],
+          "effects": [
+            { "type": "apply_effect", "effect_id": "blessing_atk", "duration": 2, "potency": 2 },
+            { "type": "give_gold", "amount": 10 }
+          ],
+          "on_fail": [{ "type": "damage_hp", "amount": 5 }]
+        },
+        {
+          "id": "scavenge",
+          "label": { "fr": "Fouiller les décombres" },
+          "effects": [{ "type": "give_gold", "amount": 20 }]
+        },
+        {
+          "id": "disturb",
+          "label": { "fr": "Déplacer une statue poussiéreuse" },
+          "effects": [{ "type": "start_combat", "boss": false }]
+        }
+      ]
+    }
+  ]
+}

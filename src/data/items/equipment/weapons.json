@@ -1,0 +1,16 @@
+[
+  { "id": "epee_rustique",   "name": "Épée rustique",   "durability_max": 12, "bonus_attack": 3, "zones": ["RUINS"] },
+  { "id": "masse_eclatee",   "name": "Masse éclatée",   "durability_max": 10, "bonus_attack": 4, "zones": ["RUINS"] },
+
+  { "id": "pique_stalactite","name": "Pique stalactite","durability_max": 10, "bonus_attack": 4, "zones": ["CAVES"] },
+  { "id": "dague_chitinee",  "name": "Dague chitinée", "durability_max": 12, "bonus_attack": 3, "zones": ["CAVES"] },
+
+  { "id": "serpe_forestiere","name": "Serpe forestière","durability_max": 12, "bonus_attack": 4, "zones": ["FOREST"] },
+  { "id": "arc_court",       "name": "Arc court",       "durability_max": 10, "bonus_attack": 3, "zones": ["FOREST"] },
+
+  { "id": "cimeterre_sable", "name": "Cimeterre du sable","durability_max": 12, "bonus_attack": 5, "zones": ["DESERT"] },
+  { "id": "lance_legere",    "name": "Lance légère",    "durability_max": 12, "bonus_attack": 4, "zones": ["DESERT"] },
+
+  { "id": "gourdin_gluant",  "name": "Gourdin gluant",  "durability_max": 10, "bonus_attack": 4, "zones": ["SWAMP"] },
+  { "id": "hallebarde_rouillee","name":"Hallebarde rouillée","durability_max": 14, "bonus_attack": 5, "zones": ["SWAMP"] }
+]

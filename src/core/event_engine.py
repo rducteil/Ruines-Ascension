@@ -96,10 +96,32 @@ class EventEngine:
             for path in folder.glob("*.json"):
                 try:
                     raw = json.loads(path.read_text(encoding="utf-8"))
-                    ev = self._parse_event(raw)
-                    self._events.append(ev)
+
+                    # Format A: fichier zone { "zone": "RUINS", "events": [ {...}, ... ] }
+                    if isinstance(raw, dict) and "events" in raw and isinstance(raw["events"], list):
+                        zone_name = str(raw.get("zone", "")).upper()
+                        for ev_raw in raw["events"]:
+                            ev_raw = dict(ev_raw)
+                            # si l'event ne précise pas zone_types, on l'injecte depuis le fichier
+                            if "zone_types" not in ev_raw and zone_name:
+                                ev_raw["zone_types"] = [zone_name]
+                            ev = self._parse_event(ev_raw)
+                            self._events.append(ev)
+                        continue
+
+                    # Format B: ancien format (1 évènement par fichier)
+                    if isinstance(raw, list):
+                        # tolère aussi un "fichier = liste d'events"
+                        for ev_raw in raw:
+                            ev = self._parse_event(ev_raw)
+                            self._events.append(ev)
+                    else:
+                        ev = self._parse_event(raw)
+                        self._events.append(ev)
+
                 except Exception:
                     continue
+
 
     def register_event(self, raw: dict) -> None:
         """Permet d'injecter un évènement (utile en tests)."""
