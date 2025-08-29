@@ -25,9 +25,7 @@ from core.player_class import PlayerClass
 from content.effects_bank import make_effect
 from content.shop_offers import ShopOffer
 from core.enemy import Enemy  
-from core.weapon import Weapon
-from core.armor import Armor
-from core.artifact import Artifact
+from core.equipment import Weapon, Armor, Artifact
 
 
 # ---------- Helpers JSON ----------
@@ -142,7 +140,7 @@ class DataConsumable(Consumable):
         self._payload = dict(payload or {})
 
     def on_use(self, user, ctx=None):
-        from core.combat_types import CombatEvent
+        from core.combat import CombatEvent
         t = self._payload.get("type")
         evs: list[CombatEvent] = []
         if t == "heal_hp":
@@ -173,7 +171,7 @@ class DataConsumable(Consumable):
             except Exception:
                 evs.append(CombatEvent(text="L’objet crépite… sans effet notable.", tag="use_unknown"))
         else:
-            from core.combat_types import CombatEvent
+            from core.combat import CombatEvent
             evs.append(CombatEvent(text="L’objet ne semble rien faire.", tag="use_none"))
         return evs
 

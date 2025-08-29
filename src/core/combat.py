@@ -5,18 +5,14 @@ from dataclasses import dataclass
 from typing import Optional, List, Dict, Any, Callable, Protocol, TYPE_CHECKING
 import random
 from core.utils  import clamp
+from effects import StatPercentMod
 
 if TYPE_CHECKING:
     from core.attack import Attack
     from core.entity import Entity
     from core.effects import Effect 
-from core.combat_types import CombatContext, CombatEvent, CombatResult
 
 # ---- Protocols facultatifs (pour aider le typage sans import circulaire) ----
-
-class StatPercentMod(Protocol):
-    attack_pct: float
-    defense_pct: float
 
 class AttackLike(Protocol):
     name: str
@@ -26,6 +22,30 @@ class AttackLike(Protocol):
     crit_multiplier: float
     effect : Effect
 
+@dataclass
+class CombatEvent:
+    """Un message d'événement + tag et data optionnelles pour l'UI."""
+    text: str
+    tag: Optional[str] = None
+    data: Optional[Dict[str, Any]] = None
+
+@dataclass
+class CombatResult:
+    """Résultat d'une résolution d'attaque (un tour)."""
+    events: List[CombatEvent]
+    attacker_alive: bool
+    defender_alive: bool
+    damage_dealt: int
+    was_crit: bool
+
+@dataclass
+class CombatContext:
+    """Contexte minimal passé aux hooks d'équipement/effets."""
+    attacker: "Entity"
+    defender: "Entity"
+    events: List[CombatEvent]
+    damage_dealt: int = 0
+    was_crit: bool = False
 
 # ---- Moteur ----
 

@@ -16,10 +16,7 @@ from core.player_class import PlayerClass, CLASSES as CLASS_REG
 
 
 if TYPE_CHECKING:
-    from core.equipment import Equipment
-    from core.weapon import Weapon
-    from core.armor import Armor
-    from core.artifact import Artifact
+    from core.equipment import Equipment, Weapon, Armor, Artifact
     from core.attack import Attack
 
 class Player(Entity):

@@ -8,13 +8,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from core.stats import Stats
-from core.settings import *
 from core.resource import Resource
 
 if TYPE_CHECKING:
-    from core.weapon import Weapon
-    from core.armor import Armor
-    from core.artifact import Artifact
+    from core.equipment import Equipment, Weapon, Armor, Artifact
 
 class Entity:
     def __init__(self, 

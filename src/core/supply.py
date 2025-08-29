@@ -4,14 +4,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, TYPE_CHECKING
 
-from core.wallet import Wallet
 from core.inventory import Inventory
-from core.combat_types import CombatEvent
+from core.combat import CombatEvent
 from content.items import make_item
 from content.shop_offers import ShopOffer
 from content.actions import with_class_attack            # pour mettre l’attaque de classe dans le loadout
 from content import shop_offers             # REST/REPAIR defaults
-from core.loadout_manager import LoadoutManager
+from core.loadout import LoadoutManager
 
 if TYPE_CHECKING:
     from core.player import Player
@@ -123,3 +122,27 @@ class SupplyManager:
             return SupplyResult(events=ev, spent=offer.price)
 
         return SupplyResult(events=[CombatEvent(text="Offre invalide.", tag="shop_invalid")], ok=False)
+
+class Wallet:
+    """Porte-monnaie simple (or)."""
+    def __init__(self, gold: int = 0) -> None:
+        self._gold = max(0, int(gold))
+
+    @property
+    def gold(self) -> int:
+        return self._gold
+
+    def add(self, amount: int) -> int:
+        amount = int(amount)
+        if amount <= 0: return 0
+        self._gold += amount
+        return amount
+
+    def can_afford(self, amount: int) -> bool:
+        return self._gold >= max(0, int(amount))
+
+    def spend(self, amount: int) -> bool:
+        amount = int(amount)
+        if amount <= 0 or self._gold < amount: return False
+        self._gold -= amount
+        return True

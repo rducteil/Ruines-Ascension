@@ -7,11 +7,14 @@ Règles:
 """
 
 from dataclasses import dataclass
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, List, TYPE_CHECKING
 
 from core.resource import Resource
 if TYPE_CHECKING:
     from core.entity import Entity
+    from core.attack import Attack
+    from core.combat import CombatContext
+    from core.effects import StatPercentMod
 
 @dataclass
 class Equipment:
@@ -106,3 +109,108 @@ class Equipment:
     def get_info(self) -> str:
         state = "cassé" if self.is_broken() else "ok"
         return f"{self.name} [{state}] ({self.durability.current}/{self.durability.maximum})"
+
+
+class Weapon(Equipment):
+    """Weapon: bonus plats (ATK), usure à l’usage et attaques spéciales optionelles."""
+
+    def __init__(self, 
+                 name: str, 
+                 durability_max: int | Resource, 
+                 bonus_attack: int = 0, 
+                 special_attacks: Optional[List[Attack]] = None, 
+                 description: str = ""):
+        if isinstance(durability_max, Resource):
+            dur = durability_max
+        else:
+            dur = Resource(current=durability_max, maximum=durability_max)
+        super().__init__(name=name, durability=dur, description=description)
+        self.bonus_attack: int = int(bonus_attack)
+        self.special_attacks: List[Attack] = list(special_attacks or [])
+
+    def get_available_attacks(self) -> List[Attack]:
+        """Attaques spéciales offertes par l'arme (optionnel)."""
+        return list(self.special_attacks)
+
+    # --- stat bonuses ---
+    def apply_bonuses(self, entity: "Entity") -> None:
+        """Apply the weapon's stat bonuses to the holder."""
+        entity.base_stats.attack += self.bonus_attack
+
+    def remove_bonuses(self, entity: "Entity") -> None:
+        """Remove the weapon's stat bonuses from the holder."""
+        entity.base_stats.attack -= self.bonus_attack
+
+    # --- usure ---
+    def on_after_attack(self, ctx: "CombatContext") -> None:
+        '''Hook appelé par le moteur après l'attaque du porteur'''
+        self.degrade(1)
+
+class Armor(Equipment):
+    """Armor: bonus plats (DEF), usure quand on encaisse des dégâts."""
+
+    def __init__(self, 
+                 name: str, 
+                 durability_max: int | Resource, 
+                 bonus_defense: int = 0, 
+                 description: str = "") -> None:
+        if isinstance(durability_max, Resource):
+            dur = durability_max
+        else:
+            dur = Resource(current=durability_max, maximum=durability_max)
+        super().__init__(name=name, durability=dur, description=description)
+        self.bonus_defense: int = int(bonus_defense)
+
+    # --- stat bonuses ---
+    def apply_bonuses(self, entity: "Entity") -> None:
+        entity.base_stats.defense += self.bonus_defense
+
+    def remove_bonuses(self, entity: "Entity") -> None:
+        entity.base_stats.defense -= self.bonus_defense
+
+    # --- usure ---
+    def on_after_hit(self, ctx: CombatContext, damage_taken: int) -> None:
+        if damage_taken > 0:
+            self.degrade(1)
+
+class Artifact(Equipment):
+    """A versatile equippable that applies several flat stat bonuses."""
+
+    def __init__(self, 
+                 name: str, 
+                 durability_max: int | Resource, 
+                 atk_pct=0.0, 
+                 def_pct=0.0, 
+                 lck_pct=0.0, 
+                 description: str = ""):
+        if isinstance(durability_max, Resource):
+            dur = durability_max
+        else:
+            dur = Resource(current=durability_max, maximum=durability_max)
+        super().__init__(name=name, durability=dur, description=description)
+        self.atk_pct = int(atk_pct)
+        self.def_pct = int(def_pct)
+        self.lck_pct = int(lck_pct)
+
+    # --- stat bonuses ---
+    def apply_bonuses(self, entity: "Entity"):
+        pass
+
+    def remove_bonuses(self, entity: "Entity"):
+        pass
+    
+    def stat_percent_mod(self) -> StatPercentMod:
+        if self.is_broken():
+            return StatPercentMod(
+                attack_pct=0.0,
+                defense_pct=0.0,
+                luck_pct=0.0
+            )
+        return StatPercentMod(
+            attack_pct=self.atk_pct,
+            defense_pct=self.def_pct,
+            luck_pct=self.lck_pct
+        )
+
+    def on_turn_end(self, ctx) -> None:
+        pass

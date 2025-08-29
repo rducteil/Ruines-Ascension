@@ -21,6 +21,21 @@ if TYPE_CHECKING:
 TargetSide = Literal["self", "target"]
 
 @dataclass
+class ResourceModifier:
+    """Modifs: HP/SP max: flat + %"""
+    hp_max_flat: int = 0
+    hp_max_pct: float = 0.0
+    sp_max_flat: int = 0
+    sp_max_pct: float = 0.0
+    
+@dataclass
+class StatPercentMod:
+    """Modifs: ATK/DEF % appliqués par le moteur"""
+    attack_pct: float = 0.0
+    defense_pct: float = 0.0
+    luck_pct: float = 0.0
+
+@dataclass
 class Effect:
     """Base d'effet persistant.
 
@@ -132,3 +147,4 @@ class LuckBuffEffect(Effect):
             text=f"Le buff de chance de {target.name} expire.",
             tag="buff_luck_expire",
         ))
+

@@ -22,7 +22,6 @@ Remarques:
 """
 
 import json
-from dataclasses import asdict
 from typing import Any, Optional, Dict, List, Tuple
 
 # ——— Imports moteur ———
@@ -32,15 +31,13 @@ from core.attack import Attack
 from core.resource import Resource
 from core.player_class import CLASSES as CLASS_REG
 from core.inventory import Inventory
-from core.wallet import Wallet
+from core.supply import Wallet
 from core.effects import Effect
 from content.effects_bank import make_effect
 # from game.game_loop import GameLoop
 
 # Équipements concrets
-from core.weapon import Weapon
-from core.armor import Armor
-from core.artifact import Artifact
+from core.equipment import Weapon, Armor, Artifact
 
 # Factories d'items (consommables)
 from content.items import ITEM_FACTORY as ITEM_FACTORY_CODE
@@ -225,7 +222,7 @@ def game_to_dict(loop) -> dict:
         ld["class_attack"] = _attack_to_dict(class_atk)
 
     # Effets actifs sur le joueur
-    effs = _effects_to_list(effects_mgr, player)
+    effs = effects_mgr.snapshot(player) if effects_mgr else []
 
     # RNG — optionnel: on ne sérialise pas l'état Python interne par défaut
     rng_state = None
@@ -279,8 +276,8 @@ def dict_to_game(data: dict, *, io=None):
     player = Player(name=name, player_class_key=class_key, base_stats=base_stats, base_hp_max=base_hp_max, base_sp_max=base_sp_max)
     # Rétablir les valeurs courantes hp/sp
     # (on suppose que Entity expose hp/sp en propriété directe)
-    player._resources.hp.current = int(p["hp"]["current"])
-    player._resources.sp.current = int(p["sp"]["current"])
+    player.hp_res.current = int(p["hp"]["current"])
+    player.sp_res.current = int(p["sp"]["current"])
 
     # Boucle et systèmes
     loop = GameLoop(player=player, io=io, seed=None)
@@ -319,8 +316,7 @@ def dict_to_game(data: dict, *, io=None):
     # Loadout
     lo = data.get("loadout", {})
     if lo:
-        from core.loadout import Loadout
-        from core.loadout_manager import LoadoutManager
+        from core.loadout import Loadout, LoadoutManager
         loop.loadouts = getattr(loop, "loadouts", LoadoutManager())
         primary = _attack_from_dict(lo["primary"]) if "primary" in lo else None
         skill   = _attack_from_dict(lo["skill"]) if "skill" in lo else None
@@ -332,7 +328,7 @@ def dict_to_game(data: dict, *, io=None):
 
     # Effets actifs (si EffectManager présent)
     if getattr(loop, "effects", None):
-        _effects_from_list(loop.effects, loop.player, data.get("effects", []), ctx=None)
+        loop.effects.restore(loop.player, data.get("effects", []), registry={}, ctx=None)
 
     # RNG (facultatif)
     try:
