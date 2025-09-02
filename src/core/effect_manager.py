@@ -7,7 +7,7 @@ from __future__ import annotations
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from enum import Enum
 from weakref import WeakKeyDictionary
 import copy
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 class EffectInstance:
     '''Instance d'effet appliquée à une cible'''
     effect : Effect
-    source_name : Optional[str] = None # ex : nom de l'attaque ou de l'arme
+    source_name : str | None = None # ex : nom de l'attaque ou de l'arme
 
 class StackPolicy(str, Enum):
     REFRESH = "refresh"  # remet la durée
@@ -33,10 +33,10 @@ class EffectManager:
     '''Enregistre, applique et purge les effets par entité'''
 
     def __init__(self):
-        self._active: WeakKeyDictionary[object, List[EffectInstance]] = WeakKeyDictionary()
+        self._active: WeakKeyDictionary[object, list[EffectInstance]] = WeakKeyDictionary()
     
     # --- Query ---
-    def get_effects(self, target : Entity) -> List[EffectInstance]:
+    def get_effects(self, target : Entity) -> list[EffectInstance]:
         return tuple(self._active.get(target, ()))
     
     def _same_kind(self, a: Effect, b: Effect) -> bool:
@@ -44,7 +44,7 @@ class EffectManager:
         return type(a) is type(b) and a.name == b.name
     
     # --- Apply / Remove ---
-    def apply(self, target: Entity, effect: Effect, *, source_name: Optional[str] = None, ctx: Optional[CombatContext] = None, policy: StackPolicy = StackPolicy.REFRESH, max_stacks: int):
+    def apply(self, target: Entity, effect: Effect, *, source_name: str | None = None, ctx: CombatContext | None = None, policy: StackPolicy = StackPolicy.REFRESH, max_stacks: int):
         '''Ajoute une copie de l'effet à la cible. Appelle optionnellement on_apply s'il existe.'''
         lst = self._active.setdefault(target, [])
 
@@ -69,10 +69,10 @@ class EffectManager:
         if ctx is not None:
             inst.effect.on_apply(target, ctx)
 
-    def purge_expired(self, target: Entity, ctx: Optional[CombatContext] = None):
+    def purge_expired(self, target: Entity, ctx: CombatContext | None = None):
         '''Supprime les effets expirés et appelle on_expire s'il existe'''
         lst = self._active.get(target, [])
-        keep: List[EffectInstance] = []
+        keep: list[EffectInstance] = []
         for inst in lst:
             if inst.effect.is_expired():
                 if ctx is not None:
@@ -100,7 +100,7 @@ class EffectManager:
             inst.effect.on_hit(ctx)
 
     # --- Sauvegarde / Restauration ---
-    def snapshot(self, target: Entity) -> List[dict]:
+    def snapshot(self, target: Entity) -> list[dict]:
         """Sérialise effets actifs (pour save)."""
         out = []
         for inst in self._active.get(target, []):
@@ -114,7 +114,7 @@ class EffectManager:
             })
         return out
 
-    def restore(self, target: Entity, rows: List[dict], registry: dict, ctx: Optional[CombatContext] = None):
+    def restore(self, target: Entity, rows: list[dict], registry: dict, ctx: CombatContext | None = None):
         """Restaure depuis snapshot. `registry` mappe 'cls' -> constructeur."""
         for r in rows:
             ctor = registry.get(r["cls"])

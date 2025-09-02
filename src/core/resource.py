@@ -5,6 +5,7 @@ from core.utils import clamp
 if TYPE_CHECKING:
     from core.entity import Entity
 
+
 @dataclass
 class ResourceMaxMods:
     hp_max_pct: float = 0.0
@@ -12,9 +13,13 @@ class ResourceMaxMods:
     sp_max_pct: float = 0.0
     sp_max_flat: int = 0
 
-@dataclass
+@dataclass(slots=True, kw_only=True)
 class Resource:
-    '''Création d'une ressource: current/maximum, add/remove et set_maximum'''
+    '''
+        Stats mutable/ressource, avec maximum et courant (vie et endurance).
+        API ajout, retrait, pose de max et application modificateur ration préservé ou non
+        args: current, maximum
+    '''
     current: int
     maximum: int
 
@@ -37,7 +42,7 @@ class Resource:
             self.maximum = max(0,new_max)
             self.current = min(self.current, self.maximum)
 
-def apply_max_mods(entity: Entity, mods: ResourceMaxMods, preserve_ratio: bool = True):
+def apply_max_mods(entity: Entity, mods: list[ResourceMaxMods], preserve_ratio: bool = True):
     hp_pct  = sum(m.hp_max_pct for m in mods)
     hp_flat = sum(m.hp_max_flat for m in mods)
     sp_pct  = sum(m.sp_max_pct for m in mods)

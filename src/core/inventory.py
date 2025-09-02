@@ -7,14 +7,18 @@ from __future__ import annotations
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, TypeAlias
 
 from core.item import Item, Consumable
 
 if TYPE_CHECKING:
     from core.equipment import Equipment
     from core.entity import Entity
-    from core.combat_types import CombatEvent, CombatContext
+    from core.player import Player
+    from core.combat import CombatEvent, CombatContext
+
+Slot: TypeAlias = Literal["primary", "skill", "utility"]
+VALID_SLOT = ("primary", "skill", "utility")
 
 
 @dataclass
@@ -31,8 +35,8 @@ class Inventory:
 
     def __init__(self, capacity: int = 12) -> None:
         self.capacity: int = max(1, int(capacity))
-        self._stacks: Dict[str, List[InventoryStack]] = {}  # item_id -> [stacks...]
-        self._equipment: List["Equipment"] = []
+        self._stacks: dict[str, list[InventoryStack]] = {}  # item_id -> [stacks...]
+        self._equipment: list["Equipment"] = []
 
     # ---- Introspection / état ----
 
@@ -44,9 +48,9 @@ class Inventory:
     def slots_free(self) -> int:
         return max(0, self.capacity - self.slots_used)
 
-    def list_summary(self) -> List[dict]:
+    def list_summary(self) -> list[dict]:
         """Résumé lisible pour l'UI (pas d’I/O ici)."""
-        rows: List[dict] = []
+        rows: list[dict] = []
         for stacks in self._stacks.values():
             for s in stacks:
                 rows.append({"kind": "item", "id": s.item.item_id, "name": s.item.name, "qty": s.qty})
@@ -113,14 +117,14 @@ class Inventory:
 
     # ---- Équipements ----
 
-    def add_equipment(self, equip: "Equipment") -> bool:
+    def add_equipment(self, equip: Equipment) -> bool:
         """Ajoute un équipement (1 slot)."""
         if self.slots_free <= 0:
             return False
         self._equipment.append(equip)
         return True
 
-    def remove_equipment(self, equip: "Equipment") -> bool:
+    def remove_equipment(self, equip: Equipment) -> bool:
         """Retire un équipement s'il est présent."""
         try:
             self._equipment.remove(equip)
@@ -128,12 +132,12 @@ class Inventory:
         except ValueError:
             return False
 
-    def list_equipment(self) -> List["Equipment"]:
+    def list_equipment(self) -> list[Equipment]:
         return list(self._equipment)
 
     # ---- Utilisation de consommables ----
 
-    def use_consumable(self, item_id: str, user: "Entity", ctx: Optional["CombatContext"] = None) -> List["CombatEvent"]:
+    def use_consumable(self, item_id: str, user: Entity, ctx: CombatContext | None = None) -> list[CombatEvent]:
         """Utilise 1 unité d'un consommable si disponible. Retourne les events générés."""
         stacks = self._stacks.get(item_id, [])
         if not stacks:
@@ -150,11 +154,13 @@ class Inventory:
 
     # ---- (Dé)équiper depuis l’inventaire ----
 
-    def equip_to(self, owner: "Entity", equip: "Equipment", slot: str) -> bool:
+    def equip_to(self, owner: Player, equip: Equipment, slot: Slot) -> bool:
         """Équipe `equip` (doit être présent dans l’inventaire). Si un objet occupait le slot, il est renvoyé dans l’inventaire.
 
         Retourne False si pas de place pour récupérer l'ancien équipement.
         """
+        if slot not in VALID_SLOT:
+            raise ValueError(f"slot invalide {slot}")  
         if equip not in self._equipment:
             return False
 
@@ -172,7 +178,7 @@ class Inventory:
             self.add_equipment(current)
         return True
 
-    def unequip_from(self, owner: "Entity", slot: str) -> bool:
+    def unequip_from(self, owner: Player, slot: Slot) -> bool:
         """Déséquipe le slot -> place l'objet dans l'inventaire (si place)."""
         current = getattr(owner, slot, None)
         if current is None:

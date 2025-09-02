@@ -11,7 +11,7 @@ from __future__ import annotations
 """
 
 from dataclasses import dataclass
-from typing import Optional, List, Literal, TYPE_CHECKING
+from typing import Literal, TYPE_CHECKING
 
 from core.combat import CombatContext, CombatEvent
 
@@ -37,12 +37,9 @@ class StatPercentMod:
 
 @dataclass
 class Effect:
-    """Base d'effet persistant.
-
-    Args:
-        name: nom affichable (log/UX)
-        duration: nombre de *fins de tour* restant (0 => expire immédiatement)
-        potency: intensité (interprétation spécifique à l'effet)
+    """
+        Base d'effet persistant.
+        Args: name, duration, potency, target
     """
     name: str
     duration: int
@@ -53,7 +50,7 @@ class Effect:
     def on_hit(self, ctx: CombatContext) -> None:
         pass
 
-    def on_apply(self, target: "Entity", ctx: CombatContext):
+    def on_apply(self, target: Entity, ctx: CombatContext):
         '''Appelé lors de l'enregistrement sur "target"'''
         pass
 
@@ -64,7 +61,7 @@ class Effect:
     def is_expired(self) -> bool:
         return self.duration <= 0
     
-    def on_expire(self, target: "Entity", ctx: CombatContext):
+    def on_expire(self, target: Entity, ctx: CombatContext):
         '''Retire les effets réversibles'''
         pass
 

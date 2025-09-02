@@ -2,11 +2,11 @@ from __future__ import annotations
 """Base des items du jeu (agnostique de l'affichage)."""
 
 from dataclasses import dataclass
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.entity import Entity
-    from core.combat_types import CombatEvent, CombatContext
+    from core.combat import CombatEvent, CombatContext
 
 
 @dataclass
@@ -33,6 +33,6 @@ class Consumable(Item):
     def __init__(self, item_id: str, name: str, description: str = "", *, max_stack: int = 99) -> None:
         super().__init__(item_id=item_id, name=name, description=description, stackable=True, max_stack=max_stack)
 
-    def on_use(self, user: "Entity", ctx: Optional["CombatContext"] = None) -> list["CombatEvent"]:
+    def on_use(self, user: Entity, ctx: CombatContext | None = None) -> list[CombatEvent]:
         """Applique l'effet et renvoie des events (peut être vide)."""
         raise NotImplementedError("Consumable.on_use must be implemented by subclasses")

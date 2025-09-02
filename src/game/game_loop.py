@@ -15,12 +15,12 @@ from core.enemy import Enemy
 from core.stats import Stats
 from core.attack import Attack
 from core.combat import CombatEngine
-from core.combat_types import CombatResult, CombatContext, CombatEvent
+from core.combat import CombatResult, CombatContext, CombatEvent
 from core.effect_manager import EffectManager
-from core.loadout_manager import LoadoutManager
+from core.loadout import LoadoutManager
 from content.actions import default_loadout_for_class
 from core.inventory import Inventory
-from core.wallet import Wallet
+from core.supply import Wallet
 from core.supply import SupplyManager
 from content.shop_offers import build_offers, REST_HP_PCT, REST_SP_PCT, REPAIR_COST_PER_POINT, ShopOffer
 from core.event_engine import EventEngine
@@ -184,11 +184,7 @@ class GameLoop:
         self.effects = EffectManager()
         self.player_inventory = Inventory(capacity=12)
         self.loadouts = LoadoutManager()
-        try:
-            from core.settings import START_GOLD
-            self.wallet = Wallet(START_GOLD)
-        except Exception:
-            self.wallet = Wallet(50)
+        self.wallet = Wallet(50)
         try:
             class_key = getattr(self.player, "player_class_key", "guerrier")
             self.loadouts.set(self.player, default_loadout_for_class(class_key))

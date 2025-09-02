@@ -2,7 +2,7 @@ from __future__ import annotations
 """Définitions des classes de joueur + registre CLASSES."""
 
 from dataclasses import dataclass, field
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from core.stats import Stats
 from core.attack import Attack
@@ -13,25 +13,28 @@ if TYPE_CHECKING:
 
 @dataclass
 class PlayerClass:
-    """Defines starting bonuses and a signature class attack."""
+    """
+        Définie bonus de départs et l'attaque de classe (compétence).
+        args: name, bonus_stats, bonus_hp_max, bonus_sp_max, class_attack    
+    """
     name: str
     bonus_stats: Stats = field(default_factory=lambda: Stats(attack=0, defense=0, luck=0))
     bonus_hp_max: int = 0
     bonus_sp_max: int = 0
-    class_attack: Optional[Attack] = None
+    class_attack: Attack | None = None
 
-    def apply_to(self, player: "Entity") -> None:
-        """Apply bonuses to a freshly created player (mutates stats/resources)."""
+    def apply_to(self, player: Entity) -> None:
+        """Applique les bonus au joueur crée (change les stats et ressources)."""
         # Stats bonus (flat)
         player.base_stats.attack += self.bonus_stats.attack
         player.base_stats.defense += self.bonus_stats.defense
         player.base_stats.luck += self.bonus_stats.luck
 
-        # Resource maxima (flat). Preserve ratio of current/maximum on change
+        # Resource maxima (flat). Garde le ratio
         player.hp_res.set_maximum(player.hp_res.maximum + self.bonus_hp_max, preserve_ratio=True)
         player.sp_res.set_maximum(player.sp_res.maximum + self.bonus_sp_max, preserve_ratio=True)
 
-        # Optional: store signature attack on the player (UI will expose it)
+        # Si présent, ajoute l'attaque de classe au joueur (pour l'UI)
         if self.class_attack is not None:
             setattr(player, "class_attack", self.class_attack)
 

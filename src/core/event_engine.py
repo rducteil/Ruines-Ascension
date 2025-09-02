@@ -32,7 +32,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 from pathlib import Path
 
-from core.combat_types import CombatEvent, CombatContext, CombatResult
+from core.combat import CombatEvent, CombatContext, CombatResult
 from core.effects import Effect
 from core.effect_manager import EffectManager
 from core.data_paths import default_data_dirs

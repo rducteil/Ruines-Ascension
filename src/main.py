@@ -9,7 +9,7 @@ from content.player_classes import CLASSES as CONTENT_CLASSES
 CORE_CLASSES.update(CONTENT_CLASSES)
 
 from core.data_loader import load_player_classes, load_attacks, load_loadouts
-from core.loadout_manager import LoadoutManager
+from core.loadout import LoadoutManager
 from core.data_loader import load_player_classes
 CORE_CLASSES.update(load_player_classes())
 

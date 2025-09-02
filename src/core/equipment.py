@@ -16,14 +16,24 @@ if TYPE_CHECKING:
     from core.combat import CombatContext
     from core.effects import StatPercentMod
 
-@dataclass
+
 class Equipment:
-    '''Equipement: equip/un_equip, repair/degrade et gère l'application et le retrait des bonus'''
-    name: str
-    durability: Resource
-    description: str = ""
-    _holder: Optional[Entity] = None
-    _bonuses_applied: bool = False
+    '''
+        Equipement: equip/un_equip, repair/degrade et gère l'application et le retrait des bonus
+        init: name, durability, description, _holder, _bonuses_applied    
+    '''
+    def __init__(self,
+                 name: str,
+                 durability_max: int,
+                 description: str = "",
+                 _holder: Optional[Entity] = None,
+                 _bonuses_applied: bool = False
+                ):
+        self.name = name
+        self.durability = Resource(current=durability_max, maximum=durability_max)
+        self.description = description
+        self._holder = _holder
+        self._bonuses_applied = _bonuses_applied    
 
     # --- état ---
     def is_broken(self) -> bool:
@@ -35,16 +45,16 @@ class Equipment:
         return (self._holder is not None) and (not self.is_broken()) and self._bonuses_applied
 
     # --- cycle de vie d'équipement ---
-    def on_equip(self, entity: "Entity") -> None:
+    def on_equip(self, entity: Entity) -> None:
         """Appelé par Player quand l'objet est équipé."""
         self._holder = entity
         if not self.is_broken():
-            self.apply_bonuses(entity)
+            self.apply_bonuses(entity)      # bonus appliqué en fonction du type d'équipement
             self._bonuses_applied = True
         else:
             self._bonuses_applied = False
 
-    def on_unequip(self, entity: "Entity") -> None:
+    def on_unequip(self, entity: Entity) -> None:
         """Appelé par Player quand l'objet est déséquipé."""
         if self._bonuses_applied:
             self.remove_bonuses(entity)
@@ -97,11 +107,11 @@ class Equipment:
 
 
     # --- hooks à surcharger ---
-    def apply_bonuses(self, entity: "Entity") -> None:
+    def apply_bonuses(self, entity: Entity) -> None:
         """Applique les bonus de l'objet (override dans les sous-classes)."""
         pass
 
-    def remove_bonuses(self, entity: "Entity") -> None:
+    def remove_bonuses(self, entity: Entity) -> None:
         """Retire les bonus de l'objet (override dans les sous-classes)."""
         pass
 
@@ -116,33 +126,29 @@ class Weapon(Equipment):
 
     def __init__(self, 
                  name: str, 
-                 durability_max: int | Resource, 
+                 durability_max: int, 
                  bonus_attack: int = 0, 
-                 special_attacks: Optional[List[Attack]] = None, 
+                 special_attacks: list[Attack] | None = None, 
                  description: str = ""):
-        if isinstance(durability_max, Resource):
-            dur = durability_max
-        else:
-            dur = Resource(current=durability_max, maximum=durability_max)
-        super().__init__(name=name, durability=dur, description=description)
+        super().__init__(name=name, durability_max=durability_max, description=description)
         self.bonus_attack: int = int(bonus_attack)
-        self.special_attacks: List[Attack] = list(special_attacks or [])
+        self.special_attacks: list[Attack] = list(special_attacks or [])
 
-    def get_available_attacks(self) -> List[Attack]:
+    def get_available_attacks(self) -> list[Attack]:
         """Attaques spéciales offertes par l'arme (optionnel)."""
         return list(self.special_attacks)
 
     # --- stat bonuses ---
-    def apply_bonuses(self, entity: "Entity") -> None:
+    def apply_bonuses(self, entity: Entity) -> None:
         """Apply the weapon's stat bonuses to the holder."""
         entity.base_stats.attack += self.bonus_attack
 
-    def remove_bonuses(self, entity: "Entity") -> None:
+    def remove_bonuses(self, entity: Entity) -> None:
         """Remove the weapon's stat bonuses from the holder."""
         entity.base_stats.attack -= self.bonus_attack
 
     # --- usure ---
-    def on_after_attack(self, ctx: "CombatContext") -> None:
+    def on_after_attack(self, ctx: CombatContext) -> None:
         '''Hook appelé par le moteur après l'attaque du porteur'''
         self.degrade(1)
 
@@ -151,21 +157,19 @@ class Armor(Equipment):
 
     def __init__(self, 
                  name: str, 
-                 durability_max: int | Resource, 
+                 durability_max: int,
                  bonus_defense: int = 0, 
                  description: str = "") -> None:
-        if isinstance(durability_max, Resource):
-            dur = durability_max
-        else:
-            dur = Resource(current=durability_max, maximum=durability_max)
-        super().__init__(name=name, durability=dur, description=description)
+        super().__init__(name=name, durability_max=durability_max, description=description)
         self.bonus_defense: int = int(bonus_defense)
 
+    
+
     # --- stat bonuses ---
-    def apply_bonuses(self, entity: "Entity") -> None:
+    def apply_bonuses(self, entity: Entity) -> None:
         entity.base_stats.defense += self.bonus_defense
 
-    def remove_bonuses(self, entity: "Entity") -> None:
+    def remove_bonuses(self, entity: Entity) -> None:
         entity.base_stats.defense -= self.bonus_defense
 
     # --- usure ---
@@ -178,25 +182,21 @@ class Artifact(Equipment):
 
     def __init__(self, 
                  name: str, 
-                 durability_max: int | Resource, 
+                 durability_max: int, 
                  atk_pct=0.0, 
                  def_pct=0.0, 
                  lck_pct=0.0, 
                  description: str = ""):
-        if isinstance(durability_max, Resource):
-            dur = durability_max
-        else:
-            dur = Resource(current=durability_max, maximum=durability_max)
-        super().__init__(name=name, durability=dur, description=description)
+        super().__init__(name=name, durability_max=durability_max, description=description)
         self.atk_pct = int(atk_pct)
         self.def_pct = int(def_pct)
         self.lck_pct = int(lck_pct)
 
     # --- stat bonuses ---
-    def apply_bonuses(self, entity: "Entity"):
+    def apply_bonuses(self, entity: Entity):
         pass
 
-    def remove_bonuses(self, entity: "Entity"):
+    def remove_bonuses(self, entity: Entity):
         pass
     
     def stat_percent_mod(self) -> StatPercentMod:
@@ -212,5 +212,5 @@ class Artifact(Equipment):
             luck_pct=self.lck_pct
         )
 
-    def on_turn_end(self, ctx) -> None:
+    def on_turn_end(self, ctx: CombatContext) -> None:
         pass

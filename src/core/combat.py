@@ -26,13 +26,13 @@ class AttackLike(Protocol):
 class CombatEvent:
     """Un message d'événement + tag et data optionnelles pour l'UI."""
     text: str
-    tag: Optional[str] = None
-    data: Optional[Dict[str, Any]] = None
+    tag: str | None = None
+    data: dict[str, Any] | None = None
 
 @dataclass
 class CombatResult:
     """Résultat d'une résolution d'attaque (un tour)."""
-    events: List[CombatEvent]
+    events: list[CombatEvent]
     attacker_alive: bool
     defender_alive: bool
     damage_dealt: int
@@ -43,7 +43,7 @@ class CombatContext:
     """Contexte minimal passé aux hooks d'équipement/effets."""
     attacker: "Entity"
     defender: "Entity"
-    events: List[CombatEvent]
+    events: list[CombatEvent]
     damage_dealt: int = 0
     was_crit: bool = False
 
@@ -55,16 +55,15 @@ class CombatEngine:
     def __init__(
             self, 
             *, 
-            seed: Optional[int] = None, 
+            seed: int | None = None, 
             _base_crit_mult: float = 2.0
             ):
         self.rng = random.Random(seed)
         self._base_crit_mult = float(_base_crit_mult)
 
-    # TODO: brancher ici effets de statut, esquive/parade si tu en ajoutes
 
-    def resolve_turn(self, attacker: "Entity", defender: "Entity", attack: Attack) -> CombatResult:
-        events: List[CombatEvent] = []
+    def resolve_turn(self, attacker: Entity, defender: Entity, attack: Attack) -> CombatResult:
+        events: list[CombatEvent] = []
         ctx = CombatContext(attacker=attacker, defender=defender, events=events)
 
         # 1) Coût en SP (si non payé -> pas d'attaque)
@@ -134,7 +133,7 @@ class CombatEngine:
         pct = self._gather_pct(entity, which="attack")
         return int(round(base * (1.0 + pct)))
 
-    def _effective_defense(self, entity: "Entity") -> int:
+    def _effective_defense(self, entity: Entity) -> int:
         base = int(entity.base_stats.defense)
         pct = self._gather_pct(entity, which="defense")
         return int(round(base * (1.0 + pct)))

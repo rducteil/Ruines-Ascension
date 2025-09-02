@@ -2,24 +2,27 @@ from __future__ import annotations
 """Player : entité jouable.
 
 - Hérite de Entity.
-- Gère les slots d'équipement (weapon/armor/artifact) via equip/unequip.
-- Applique les bonus de PlayerClass à l'init.
-- Aucune I/O ici (compatible console & PyGame).
+- Pas d'I/O ici.
+- Dépend de  core.entity, core.stats, core.player_classes
 """
 
-from typing import Optional, TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, TypeAlias
 
 from core.entity import Entity
 from core.stats import Stats
 from core.player_class import PlayerClass, CLASSES as CLASS_REG
 
-
-
 if TYPE_CHECKING:
-    from core.equipment import Equipment, Weapon, Armor, Artifact
-    from core.attack import Attack
+    from core.equipment import Equipment
+
+Slot: TypeAlias = Literal["weapon", "armor", "artifact"]
+VALID_SLOT = ("weapon", "armor", "artifact")
 
 class Player(Entity):
+    """
+        Entité jouable
+        init: name, player_class_key, base_stats, base
+    """
     def __init__(self, 
                  name: str, 
                  player_class_key: str, 
@@ -29,36 +32,43 @@ class Player(Entity):
         super().__init__(name=name, base_stats=base_stats, base_hp_max=base_hp_max, base_sp_max=base_sp_max)
 
         # Equipment slots (optional at start)
-        self.weapon: Optional[Equipment] = None
-        self.armor: Optional[Equipment] = None
-        self.artifact: Optional[Equipment] = None
+        self.weapon: Equipment | None = None
+        self.armor: Equipment | None = None
+        self.artifact: Equipment | None = None
 
         # Apply class bonuses (stats + resources) if provided
         self.player_class_key = (player_class_key or "").strip().lower()
         self.player_class: PlayerClass = CLASS_REG[player_class_key]
         self.player_class.apply_to(self)
 
-    Slot = Literal["weapon", "armor", "artifact"]
 
     def __str__(self):
         return f"{self.name} ({self.player_class.name})\n" + super().__str__()
 
-    def equip(self, item: object, slot: str) -> None:
-        """Equip an item into a slot ("weapon", "armor", "artifact")."""
-        current_item = getattr(self, slot, None)
+    def equip(self, item: Equipment, slot: Slot) -> None:
+        """Equip un item dans slot ("weapon", "armor", "artifact")."""
+        # Vérifie le bon slot
+        if slot not in VALID_SLOT:
+            raise ValueError(f"slot invalide {slot}") 
+        # On vérifie que l'item n'a pas de holder
+        current_holder: Entity | None = getattr(item, "_holder", None)
+        if current_holder and current_holder is not self:
+            item.on_unequip(current_holder)
+        # On unequip si player a déja un item
+        current_item: Equipment | None = getattr(self, slot, None)
         if current_item:
-            # Unequip current item first
-            if hasattr(current_item, "on_unequip"):
-                current_item.on_unequip(self)
+            current_item.on_unequip(self)
+        # Donne l'item au player et applique les bonus
         setattr(self, slot, item)
-        if hasattr(item, "on_equip"):
-            item.on_equip(self)
+        item.on_equip(self)
 
-    def unequip(self, slot: str) -> None:
-        item = getattr(self, slot, None)
+    def unequip(self, slot: Slot) -> None:
+        # Vérifie le bon slot
+        if slot not in VALID_SLOT:
+            raise ValueError(f"slot invalide {slot}") 
+        item: Equipment | None = getattr(self, slot, None)
         if item:
-            if hasattr(item, "on_unequip"):
-                item.on_unequip(self)
+            item.on_unequip(self)
             setattr(self, slot, None)
 
     def print_equipment(self) -> None:
