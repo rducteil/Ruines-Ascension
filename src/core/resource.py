@@ -13,7 +13,7 @@ class ResourceMaxMods:
     sp_max_pct: float = 0.0
     sp_max_flat: int = 0
 
-@dataclass(slots=True, kw_only=True)
+@dataclass(slots=True)
 class Resource:
     '''
         Stats mutable/ressource, avec maximum et courant (vie et endurance).

@@ -2,14 +2,14 @@ from __future__ import annotations
 """Logique de ravitaillement: repos, réparation, achats, parchemin de classe."""
 
 from dataclasses import dataclass
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from core.inventory import Inventory
 from core.combat import CombatEvent
 from content.items import make_item
 from content.shop_offers import ShopOffer
-from content.actions import with_class_attack            # pour mettre l’attaque de classe dans le loadout
-from content import shop_offers             # REST/REPAIR defaults
+from content.actions import with_class_attack        # pour mettre l’attaque de classe dans le loadout
+from content import shop_offers                      # REST/REPAIR defaults
 from core.loadout import LoadoutManager
 
 if TYPE_CHECKING:

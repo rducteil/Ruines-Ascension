@@ -2,7 +2,7 @@ from __future__ import annotations
 """Moteur de combat (agnostique de l'I/O). Gère SP, dégâts, crit, usure."""
 
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any, Callable, Protocol, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 import random
 from core.utils  import clamp
 from effects import StatPercentMod
@@ -11,16 +11,9 @@ if TYPE_CHECKING:
     from core.attack import Attack
     from core.entity import Entity
     from core.effects import Effect 
+    from core.equipment import Weapon, Armor, Artifact
 
 # ---- Protocols facultatifs (pour aider le typage sans import circulaire) ----
-
-class AttackLike(Protocol):
-    name: str
-    base_damage: int
-    variance: int
-    cost: int
-    crit_multiplier: float
-    effect : Effect
 
 @dataclass
 class CombatEvent:
@@ -41,8 +34,8 @@ class CombatResult:
 @dataclass
 class CombatContext:
     """Contexte minimal passé aux hooks d'équipement/effets."""
-    attacker: "Entity"
-    defender: "Entity"
+    attacker: Entity
+    defender: Entity
     events: list[CombatEvent]
     damage_dealt: int = 0
     was_crit: bool = False
@@ -127,7 +120,7 @@ class CombatEngine:
 
     # ---------- Helpers calculs ----------
 
-    def _effective_attack(self, entity: "Entity") -> int:
+    def _effective_attack(self, entity: Entity) -> int:
         """Attack effective = plats (déjà dans base_stats) * (1 + somme %)."""
         base = int(entity.base_stats.attack)
         pct = self._gather_pct(entity, which="attack")
@@ -155,20 +148,15 @@ class CombatEngine:
     def _crit_func(self, luck: int) -> float:
         return (1.0 - (0.98 ** max(0, luck))) / 0.8673804
 
-    def _crit_multiplier(self, entity: "Entity", attack: AttackLike) -> float:
+    def _crit_multiplier(self, entity: Entity, attack: Attack) -> float:
         """x2 par défaut, surcharge possible par l'attaque ou l'équipement."""
         mult = float(getattr(attack, "crit_multiplier", self._base_crit_mult))
-        # Option: bonus d'équipement (addition simple)
-        for slot in ("weapon", "armor", "artifact"):
-            item = getattr(entity, slot, None)
-            if item and hasattr(item, "crit_mult_bonus"):
-                mult += float(item.crit_mult_bonus())
         return max(1.0, mult)
 
     # ---------- Usure ----------
 
-    def _wear_after_attack(self, attacker: "Entity", ctx: CombatContext, events: List[CombatEvent]) -> None:
-        weapon = getattr(attacker, "weapon", None)
+    def _wear_after_attack(self, attacker: Entity, ctx: CombatContext, events: list[CombatEvent]) -> None:
+        weapon: Weapon = getattr(attacker, "weapon", None)
         if weapon and hasattr(weapon, "on_after_attack"):
             was_broken = getattr(weapon, "is_broken", lambda: False)()
             weapon.on_after_attack(ctx)
@@ -176,8 +164,8 @@ class CombatEngine:
             if not was_broken and now_broken:
                 events.append(CombatEvent(text=f"L'arme de {attacker.name} se casse !", tag="weapon_broken"))
 
-    def _wear_after_hit(self, defender: "Entity", ctx: CombatContext, events: List[CombatEvent]) -> None:
-        armor = getattr(defender, "armor", None)
+    def _wear_after_hit(self, defender: Entity, ctx: CombatContext, events: list[CombatEvent]) -> None:
+        armor: Armor = getattr(defender, "armor", None)
         if armor and hasattr(armor, "on_after_hit"):
             was_broken = getattr(armor, "is_broken", lambda: False)()
             armor.on_after_hit(ctx, damage_taken=ctx.damage_dealt)

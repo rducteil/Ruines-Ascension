@@ -29,13 +29,16 @@ Format JSON attendu (ex. data/events/ruins_altar_01.json):
 
 import json, os, random
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Sequence, TYPE_CHECKING
 from pathlib import Path
 
 from core.combat import CombatEvent, CombatContext, CombatResult
 from core.effects import Effect
 from core.effect_manager import EffectManager
 from core.data_paths import default_data_dirs
+
+if TYPE_CHECKING:
+    from core.player import Player
 
 # Types légers
 @dataclass
@@ -57,7 +60,7 @@ class LoadedEvent:
 @dataclass
 class EventApplyResult:
     events: list[CombatEvent]
-    start_combat: Optional[dict] = None  # ex: {"enemy_id": "mini_boss"} ou {"boss": True}
+    start_combat: dict | None = None  # ex: {"enemy_id": "mini_boss"} ou {"boss": True}
 
 
 class EventEngine:
@@ -74,9 +77,9 @@ class EventEngine:
         data_dir: str = "data/events",
         *,
         lang: str = "fr",
-        seed: Optional[int] = None,
-        effects: Optional[EffectManager] = None,
-        enemy_factory: Optional[Callable[[dict], Any]] = None,  # reçoit dict effect {"enemy_id":..., "boss":...}
+        seed: int | None = None,
+        effects: EffectManager | None = None,
+        enemy_factory: Callable[[dict], Any] | None = None,  # reçoit dict effect {"enemy_id":..., "boss":...}
     ) -> None:
         self.lang = lang
         self.rng = random.Random(seed)
@@ -153,7 +156,7 @@ class EventEngine:
 
     # --------- Sélection ---------
 
-    def pick_for_zone(self, zone_type: str) -> Optional[LoadedEvent]:
+    def pick_for_zone(self, zone_type: str) -> LoadedEvent | None:
         """Tire un évènement compatible avec le biome, selon weight."""
         pool = [e for e in self._events if (not e.zone_types or zone_type in e.zone_types)]
         if not pool:
@@ -174,9 +177,9 @@ class EventEngine:
         event: LoadedEvent,
         option_id: str,
         *,
-        player: Any,
-        wallet: Optional[Any] = None,
-        extra_ctx: Optional[dict] = None,  # ex: {"zone": zone_obj}
+        player: Player,
+        wallet: Any | None = None,
+        extra_ctx: dict | None = None,  # ex: {"zone": zone_obj}
     ) -> EventApplyResult:
         """Applique les effets de l'option (ou on_fail si requirements non remplis)."""
         opt = next((o for o in event.options if o.id == option_id), None)
@@ -197,7 +200,7 @@ class EventEngine:
             return EventApplyResult(events=logs)
 
         # Effets
-        pending_combat: Optional[dict] = None
+        pending_combat: dict | None = None
         for eff in opt.raw.get("effects", []):
             if eff.get("type") == "start_combat":
                 pending_combat = eff  # {"enemy_id": "..."} ou {"boss": true}
@@ -226,10 +229,10 @@ class EventEngine:
     def _apply_effect_payload(
         self,
         eff: dict,
-        player: Any,
-        wallet: Optional[Any],
+        player: Player,
+        wallet: Any | None,
         ctx: CombatContext,
-        extra_ctx: Optional[dict],
+        extra_ctx: dict | None,
     ) -> None:
         t = eff.get("type")
         if t == "heal_hp":

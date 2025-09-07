@@ -36,7 +36,7 @@ class Inventory:
     def __init__(self, capacity: int = 12) -> None:
         self.capacity: int = max(1, int(capacity))
         self._stacks: dict[str, list[InventoryStack]] = {}  # item_id -> [stacks...]
-        self._equipment: list["Equipment"] = []
+        self._equipment: list[Equipment] = []
 
     # ---- Introspection / état ----
 

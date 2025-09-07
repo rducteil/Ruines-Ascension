@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import random
 from enum import Enum, auto
-from typing import Callable, List, Optional, Protocol, Sequence, Tuple, Any, Literal
+from typing import Callable, Protocol, Sequence, Tuple, Any
 
 from core.player import Player
 from core.enemy import Enemy
@@ -136,14 +136,14 @@ def next_zone_options(current: "ZoneType", rng: random.Random, k: int = 3) -> li
     rng.shuffle(pool)
     return pool[:max(1, min(k, len(pool)))]
 
-ZONE_TYPE_LIST: List[ZoneType] = [ZoneType.RUINS, ZoneType.CAVES, ZoneType.FOREST, ZoneType.DESERT, ZoneType.SWAMP]
+ZONE_TYPE_LIST: list[ZoneType] = [ZoneType.RUINS, ZoneType.CAVES, ZoneType.FOREST, ZoneType.DESERT, ZoneType.SWAMP]
 
 @dataclass
 class Section:
     """Une section à explorer dans une zone."""
     kind: SectionType
     # Pour COMBAT/BOSS, une fabrique d'ennemi ; pour EVENT/SUPPLY, None.
-    enemy_factory: Optional[Callable[[], Enemy]] = None
+    enemy_factory: Callable[[], Enemy] | None = None
 
 @dataclass
 class Zone:
@@ -168,10 +168,10 @@ class GameLoop:
     def __init__(
         self,
         player: Player,
-        io: Optional[GameIO] = None,
+        io: GameIO | None = None,
         *,
-        seed: Optional[int] = None,
-        initial_zone: Optional[ZoneType] = None,
+        seed: int | None = None,
+        initial_zone: ZoneType | None = None,
         start_level: int = 1,
     ) -> None:
         self.player = player
@@ -242,7 +242,7 @@ class GameLoop:
     # Génération / Choix RNG
     # ----------------------
 
-    def _generate_section_choices(self, zone: Zone) -> List[Section]:
+    def _generate_section_choices(self, zone: Zone) -> list[Section]:
         """Propose 2 sections de types différents parmi COMBAT/EVENT/SUPPLY (jamais 2 fois le même)."""
         pool = [SectionType.COMBAT, SectionType.EVENT, SectionType.SUPPLY]
         a = self._rng_choice(pool)

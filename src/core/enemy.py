@@ -12,7 +12,7 @@ from core.entity import Entity
 from core.stats import Stats
 
 if TYPE_CHECKING:
-    from core.attack import Attack
+    pass
 
 
 class Enemy(Entity):

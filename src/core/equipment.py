@@ -7,7 +7,7 @@ Règles:
 """
 
 from dataclasses import dataclass
-from typing import Optional, List, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from core.resource import Resource
 if TYPE_CHECKING:
