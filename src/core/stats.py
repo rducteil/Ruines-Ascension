@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 
-@dataclass(slots=True)
+@dataclass
 class Stats:
     """
         Stats fixe (attaque, défense, chance, multiplicateur crit)

@@ -1,0 +1,8 @@
+[
+    {"item_id": "potion_hp_s", "name": "Petite potion de soin", "base_price": 10},
+    {"item_id": "potion_sp_s", "name": "Petite potion d’endurance", "base_price": 12},
+    {"item_id": "potion_hp_m", "name": "Moyenne potion de soin", "base_price": 20},
+    {"item_id": "potion_sp_m", "name": "Moyenne potion d’endurance", "base_price": 25},
+    {"item_id": "potion_hp_l", "name": "Grande potion de soin", "base_price": 40},
+    {"item_id": "potion_sp_l", "name": "Grande potion d’endurance", "base_price": 50}
+]

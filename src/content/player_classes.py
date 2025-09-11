@@ -60,7 +60,7 @@ CLASSES: dict[str, PlayerClass] = {
         bonus_stats=Stats(defense=40),
         bonus_hp_max=10,
         class_attack=Attack(
-            name="Bastion compresseur", 
+            name="Bastion Compresseur", 
             base_damage=20,
             variance=0,
             cost=20

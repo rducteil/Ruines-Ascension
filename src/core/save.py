@@ -22,7 +22,7 @@ Remarques:
 """
 
 import json
-from typing import Any, Optional, Dict, List, Tuple
+from typing import TYPE_CHECKING
 
 # ——— Imports moteur ———
 from core.stats import Stats
@@ -34,6 +34,7 @@ from core.inventory import Inventory
 from core.supply import Wallet
 from core.effects import Effect
 from content.effects_bank import make_effect
+from core.loadout import Loadout, LoadoutManager
 # from game.game_loop import GameLoop
 
 # Équipements concrets
@@ -41,6 +42,9 @@ from core.equipment import Weapon, Armor, Artifact
 
 # Factories d'items (consommables)
 from content.items import ITEM_FACTORY as ITEM_FACTORY_CODE
+
+if TYPE_CHECKING:
+    from game.game_loop import GameLoop
 
 SAVE_VERSION = 1
 
@@ -58,19 +62,20 @@ def _attack_to_dict(atk: Attack) -> dict:
         "true_damage": getattr(atk, "true_damage", 0),
     }
     # Effets (facultatif): si l'attaque porte des effets instanciés, on les réduit à effect_id/potency/duration
-    effs = []
-    for e in getattr(atk, "effects", []) or []:
-        eid = getattr(e, "effect_id", None) or getattr(e, "name", None)
-        effs.append({
-            "effect_id": str(eid) if eid is not None else "custom",
-            "duration": int(getattr(e, "remaining", getattr(e, "duration", 0))),
-            "potency": int(getattr(e, "potency", 0)),
-        })
-    if effs:
-        d["effects"] = effs
-    # Cible (si tu as ajouté ce champ): "self"/"enemy"
-    if hasattr(atk, "target"):
-        d["target"] = getattr(atk, "target")
+    if atk.effects:
+        effs = []
+        for e in atk.effects:
+            eid = getattr(e, "effect_id", None) or getattr(e, "name", None)
+            effs.append({
+                "effect_id": str(eid) if eid is not None else "custom",
+                "duration": int(getattr(e, "remaining", getattr(e, "duration", 0))),
+                "potency": int(getattr(e, "potency", 0)),
+            })
+        if effs:
+            d["effects"] = effs
+        # Cible (si tu as ajouté ce champ): "self"/"enemy"
+        if hasattr(atk, "target"):
+            d["target"] = getattr(atk, "target")
     return d
 
 
@@ -92,7 +97,7 @@ def _attack_from_dict(d: dict) -> Attack:
     )
 
 
-def _equipment_slot_to_dict(slot_obj) -> Optional[dict]:
+def _equipment_slot_to_dict(slot_obj) -> dict | None:
     if slot_obj is None:
         return None
     base = {
@@ -115,7 +120,7 @@ def _equipment_slot_to_dict(slot_obj) -> Optional[dict]:
     return base
 
 
-def _equipment_slot_from_dict(d: Optional[dict]):
+def _equipment_slot_from_dict(d: dict | None):
     if not d:
         return None
     k = d.get("kind")
@@ -169,7 +174,7 @@ def _effects_from_list(effects_mgr, target, payloads: list[dict], ctx=None) -> N
 
 # --------------------- API publique ---------------------
 
-def game_to_dict(loop) -> dict:
+def game_to_dict(loop: GameLoop) -> dict:
     """Capture l'état du GameLoop (sans UI) en dict JSON-sérialisable."""
     player: Player = loop.player
     inv: Inventory = loop.player_inventory
@@ -316,7 +321,6 @@ def dict_to_game(data: dict, *, io=None):
     # Loadout
     lo = data.get("loadout", {})
     if lo:
-        from core.loadout import Loadout, LoadoutManager
         loop.loadouts = getattr(loop, "loadouts", LoadoutManager())
         primary = _attack_from_dict(lo["primary"]) if "primary" in lo else None
         skill   = _attack_from_dict(lo["skill"]) if "skill" in lo else None

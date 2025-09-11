@@ -16,7 +16,7 @@ class Attack:
     variance: int = 0                                       # delta tiré dans [-variance, +variance]
     cost: int = 0                                           # coût en SP
     crit_multiplier: float = 2.0                            # x2 par défaut (peut varier en fonction de l'attaque)
-    effects: list [Effect] = field(default_factory=list)    # effets appliqué en contact (on_hit)
+    effects: list [Effect] | None = field(default_factory=list)    # effets appliqué en contact (on_hit)
 
     # Modifs de calcul (optionnelles)
     ignore_defense_pct: float = 0.0                         # proportion de DEF ignorée (0.25 -> 25 % de DEF ignoré)

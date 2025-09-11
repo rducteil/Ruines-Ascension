@@ -4,7 +4,7 @@ Exécution:
     python -m core.data_validate
 """
 
-from typing import List, Dict, Any, Tuple, Optional
+from typing import Any, TYPE_CHECKING
 from dataclasses import dataclass
 
 from core.data_loader import (
@@ -12,8 +12,12 @@ from core.data_loader import (
     load_enemy_blueprints,
     load_encounter_tables,
     load_equipment_banks,
+    default_data_dirs
 )
-from core.data_paths import default_data_dirs
+from pathlib import Path
+
+if TYPE_CHECKING:
+    from core.equipment import Equipment
 
 # --- Constantes de zones (strings, car les JSON stockent des noms) ---
 ZONE_NAMES = {"RUINS", "CAVES", "FOREST", "DESERT", "SWAMP"}
@@ -27,13 +31,13 @@ REQUIRE_STATS = {"attack", "defense", "luck"}
 
 @dataclass
 class Report:
-    errors: List[str]
-    warnings: List[str]
+    errors: list[str]
+    warnings: list[str]
 
     def ok(self) -> bool:
         return not self.errors
 
-    def extend(self, other: "Report") -> None:
+    def extend(self, other: Report) -> None:
         self.errors.extend(other.errors)
         self.warnings.extend(other.warnings)
 
@@ -53,8 +57,8 @@ class Report:
 
 # ---------- Helpers ----------
 
-def _pos_int(value: Any, name: str, ctx: str, *, zero_ok: bool = False) -> List[str]:
-    errs: List[str] = []
+def _pos_int(value: Any, name: str, ctx: str, *, zero_ok: bool = False) -> list[str]:
+    errs: list[str] = []
     try:
         iv = int(value)
         if (iv < 0) or (iv == 0 and not zero_ok):
@@ -63,8 +67,8 @@ def _pos_int(value: Any, name: str, ctx: str, *, zero_ok: bool = False) -> List[
         errs.append(f"{ctx}: '{name}' must be an integer (got {value!r})")
     return errs
 
-def _nonneg_int(value: Any, name: str, ctx: str) -> List[str]:
-    errs: List[str] = []
+def _nonneg_int(value: Any, name: str, ctx: str) -> list[str]:
+    errs: list[str] = []
     try:
         iv = int(value)
         if iv < 0:
@@ -73,8 +77,8 @@ def _nonneg_int(value: Any, name: str, ctx: str) -> List[str]:
         errs.append(f"{ctx}: '{name}' must be an integer (got {value!r})")
     return errs
 
-def _pct(value: Any, name: str, ctx: str) -> List[str]:
-    errs: List[str] = []
+def _pct(value: Any, name: str, ctx: str) -> list[str]:
+    errs: list[str] = []
     try:
         fv = float(value)
         if not (0.0 <= fv <= 1.0):
@@ -86,8 +90,8 @@ def _pct(value: Any, name: str, ctx: str) -> List[str]:
 
 # ---------- Validators (existing) ----------
 
-def validate_enemies(attacks_reg: Dict[str, Any]) -> Report:
-    from core.data_loader import load_enemy_blueprints  # ensure latest
+def validate_enemies(attacks_reg: dict[str, Any]) -> Report:
+    # ensure latest
     rep = Report(errors=[], warnings=[])
     blueprints = load_enemy_blueprints(attacks_reg)
 
@@ -125,7 +129,7 @@ def validate_enemies(attacks_reg: Dict[str, Any]) -> Report:
     return rep
 
 
-def validate_encounters(blueprints: Dict[str, Any]) -> Report:
+def validate_encounters(blueprints: dict[str, Any]) -> Report:
     rep = Report(errors=[], warnings=[])
     tables = load_encounter_tables()
     if not tables:
@@ -159,7 +163,7 @@ def validate_equipment() -> Report:
     def _check_factory(kind: str, fid: str, fac):
         ctx = f"equipment:{kind}:{fid}"
         try:
-            obj = fac()
+            obj: Equipment = fac()
         except Exception as e:
             rep.errors.append(f"{ctx}: factory failed: {e}")
             return
@@ -191,8 +195,8 @@ def validate_equipment() -> Report:
 
 # ---------- NEW: Events ----------
 
-def _validate_event_effect(payload: dict, *, ctx: str) -> List[str]:
-    errs: List[str] = []
+def _validate_event_effect(payload: dict, *, ctx: str) -> list[str]:
+    errs: list[str] = []
     t = payload.get("type")
     if t not in EVENT_EFFECT_TYPES:
         errs.append(f"{ctx}: unknown effect type '{t}'. allowed={sorted(EVENT_EFFECT_TYPES)}")
@@ -236,7 +240,6 @@ def _validate_event_effect(payload: dict, *, ctx: str) -> List[str]:
 
 def validate_events() -> Report:
     """Valide data/events/ (format 'event_<zone>.json' ou anciens formats)."""
-    from pathlib import Path
     import json
 
     rep = Report(errors=[], warnings=[])
@@ -256,7 +259,7 @@ def validate_events() -> Report:
                 continue
 
             file_zone = None
-            events_payload: List[dict] = []
+            events_payload: list[dict] = []
 
             # Format 1 (nouveau) : { "zone": "RUINS", "events": [ {...}, ... ] }
             if isinstance(raw, dict) and "events" in raw and isinstance(raw["events"], list):

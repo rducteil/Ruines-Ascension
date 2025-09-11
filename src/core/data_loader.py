@@ -11,7 +11,7 @@ Fichiers attendus (dans src/data/ ou mods/env):
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Callable
+from typing import Any, Callable
 import json
 from pathlib import Path
 from copy import deepcopy
@@ -19,18 +19,20 @@ from copy import deepcopy
 from core.data_paths import default_data_dirs
 from core.attack import Attack
 from core.loadout import Loadout
-from core.item import Consumable, Item
+from core.item import Consumable
 from core.stats import Stats
 from core.player_class import PlayerClass
 from content.effects_bank import make_effect
+from core.effect_manager import EffectManager
 from content.shop_offers import ShopOffer
 from core.enemy import Enemy  
 from core.equipment import Weapon, Armor, Artifact
+from core.combat import CombatEvent
 
 
 # ---------- Helpers JSON ----------
 
-def _read_json_first(path_rel: str) -> Optional[Any]:
+def _read_json_first(path_rel: str) -> dict[str, dict] | None:
     """Lit le premier JSON trouvé pour path_rel depuis la liste de répertoires de données."""
     for base in default_data_dirs():
         p = base / Path(path_rel)
@@ -43,17 +45,17 @@ def _read_json_first(path_rel: str) -> Optional[Any]:
 
 # ---------- Player classes ----------
 
-def load_player_classes(merge_into: Optional[Dict[str, PlayerClass]] = None) -> Dict[str, PlayerClass]:
+def load_player_classes(merge_into: dict[str, PlayerClass] | None = None) -> dict[str, PlayerClass]:
     """Charge player_classes.json et retourne/merge un registre {key: PlayerClass}."""
     raw = _read_json_first("player_classes.json")
     if not isinstance(raw, dict):
         return merge_into or {}
 
-    result: Dict[str, PlayerClass] = {} if merge_into is None else merge_into
+    result: dict[str, PlayerClass] = {} if merge_into is None else merge_into
     for key, row in raw.items():
         key = (str(key) or "").strip().lower()
         name = row.get("name", key)
-        bonus = row.get("bonus_stats", {})
+        bonus: dict = row.get("bonus_stats", {})
         bonus_stats = Stats(
             attack=int(bonus.get("attack", 0)),
             defense=int(bonus.get("defense", 0)),
@@ -63,7 +65,7 @@ def load_player_classes(merge_into: Optional[Dict[str, PlayerClass]] = None) -> 
         bonus_sp = int(row.get("bonus_sp_max", 0))
 
         # attaque de classe optionnelle
-        atk_def = row.get("attack")
+        atk_def: dict = row.get("attack")
         class_attack = None
         if isinstance(atk_def, dict):
             class_attack = _attack_from_dict(atk_def)
@@ -81,7 +83,7 @@ def load_player_classes(merge_into: Optional[Dict[str, PlayerClass]] = None) -> 
 
 def _attack_from_dict(d: dict) -> Attack:
     """Crée une Attack depuis un dict JSON (supporte 'effects':[{'effect_id', 'duration','potency'}])."""
-    d = dict(d)  # shallow copy
+    d: dict[str, dict] = dict(d)  # shallow copy
     # convertir effects -> objets Effect
     effs = []
     for e in d.get("effects", []) or []:
@@ -105,19 +107,19 @@ def _attack_from_dict(d: dict) -> Attack:
         **({ "target": d["target"] } if "target" in d else {})
     )
 
-def load_attacks() -> Dict[str, Attack]:
+def load_attacks() -> dict[str, Attack]:
     """Charge attacks.json et retourne un dict {ATTACK_KEY: Attack}."""
     raw = _read_json_first("attacks.json")
-    res: Dict[str, Attack] = {}
+    res: dict[str, Attack] = {}
     if isinstance(raw, dict):
         for key, d in raw.items():
             res[key] = _attack_from_dict(d)
     return res
 
-def load_loadouts(attacks_registry: Dict[str, Attack]) -> Dict[str, Loadout]:
+def load_loadouts(attacks_registry: dict[str, Attack]) -> dict[str, Loadout]:
     """Charge loadouts.json et construit {class_key: Loadout} à partir des clés d'attaque."""
     raw = _read_json_first("loadouts.json")
-    res: Dict[str, Loadout] = {}
+    res: dict[str, Loadout] = {}
     if not isinstance(raw, dict):
         return res
     for class_key, row in raw.items():
@@ -140,7 +142,6 @@ class DataConsumable(Consumable):
         self._payload = dict(payload or {})
 
     def on_use(self, user, ctx=None):
-        from core.combat import CombatEvent
         t = self._payload.get("type")
         evs: list[CombatEvent] = []
         if t == "heal_hp":
@@ -156,8 +157,6 @@ class DataConsumable(Consumable):
             dur = int(self._payload.get("duration", 0))
             pot = int(self._payload.get("potency", 0))
             eff = make_effect(eid, duration=dur, potency=pot)
-            # on cible l'utilisateur (buff) par défaut
-            from core.effect_manager import EffectManager
             # On suppose que le GameLoop a un EffectManager; si ctx n'existe pas, on applique à sec:
             try:
                 # si le ctx est fourni, on applique via manager si dispo sur la boucle
@@ -175,10 +174,10 @@ class DataConsumable(Consumable):
             evs.append(CombatEvent(text="L’objet ne semble rien faire.", tag="use_none"))
         return evs
 
-def load_items() -> Dict[str, DataConsumable]:
+def load_items() -> dict[str, DataConsumable]:
     """Charge items.json et retourne un factory dict {item_id: callable()->Consumable}."""
     raw = _read_json_first("items.json")
-    res: Dict[str, Any] = {}
+    res: dict[str, Any] = {}
     if isinstance(raw, list):
         for row in raw:
             try:
@@ -198,7 +197,7 @@ def load_items() -> Dict[str, DataConsumable]:
                 continue
     return res
 
-def load_shop_offers() -> Tuple[List[ShopOffer], Dict[str, int]]:
+def load_shop_offers() -> tuple[list[ShopOffer], dict[str, int]]:
     """Charge shops/offers.json et shops/config.json.
 
     Retourne (offers, config) où:
@@ -209,7 +208,7 @@ def load_shop_offers() -> Tuple[List[ShopOffer], Dict[str, int]]:
     items_rows = offers_raw.get("items", [])
     class_scroll = offers_raw.get("class_scroll", {"name": "Parchemin de maîtrise", "base_price": 50})
 
-    offers: List[ShopOffer] = []
+    offers: list[ShopOffer] = []
     for row in items_rows:
         try:
             offers.append(ShopOffer(kind="item",

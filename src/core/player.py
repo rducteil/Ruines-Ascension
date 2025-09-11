@@ -13,7 +13,7 @@ from core.stats import Stats
 from core.player_class import PlayerClass, CLASSES as CLASS_REG
 
 if TYPE_CHECKING:
-    from core.equipment import Equipment
+    from core.equipment import Equipment, Weapon, Armor, Artifact
 
 Slot: TypeAlias = Literal["weapon", "armor", "artifact"]
 VALID_SLOT = ("weapon", "armor", "artifact")
@@ -32,9 +32,9 @@ class Player(Entity):
         super().__init__(name=name, base_stats=base_stats, base_hp_max=base_hp_max, base_sp_max=base_sp_max)
 
         # Equipment slots (optional at start)
-        self.weapon: Equipment | None = None
-        self.armor: Equipment | None = None
-        self.artifact: Equipment | None = None
+        self.weapon: Weapon | None = None
+        self.armor: Armor | None = None
+        self.artifact: Artifact | None = None
 
         # Apply class bonuses (stats + resources) if provided
         self.player_class_key = (player_class_key or "").strip().lower()

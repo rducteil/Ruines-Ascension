@@ -42,6 +42,7 @@ class Effect:
         Args: name, duration, potency, target
     """
     name: str
+    id: str
     duration: int
     potency: int
     target: TargetSide = "target"
@@ -72,8 +73,8 @@ class Effect:
 # --- Liste d'effets ---
 
 class PoisonEffect(Effect):
-    def __init__(self, name: str, duration: int, potency: int):
-        super().__init__(name=name, duration=duration, potency=potency, target="target")
+    def __init__(self, id: str, name: str, duration: int, potency: int):
+        super().__init__(name=name, id=id,  duration=duration, potency=potency, target="target")
     
     def on_turn_end(self, ctx: CombatContext) -> None:
         if self.is_expired():
@@ -89,8 +90,8 @@ class PoisonEffect(Effect):
         self.tick()
 
 class AttackBuffEffect(Effect):
-    def __init__(self, name: str, duration: int, potency: int):
-        super().__init__(name=name, duration=duration, potency=potency, target="self")
+    def __init__(self, id: str, name: str, duration: int, potency: int):
+        super().__init__(name=name, id=id, duration=duration, potency=potency, target="self")
 
     def on_apply(self, target, ctx: CombatContext) -> None:
         target.base_stats.attack += self.potency
@@ -108,8 +109,8 @@ class AttackBuffEffect(Effect):
         ))
     
 class DefenseBuffEffect(Effect):
-    def __init__(self, name: str, duration: int, potency: int):
-        super().__init__(name=name, duration=duration, potency=potency, target="self")
+    def __init__(self, id: str, name: str, duration: int, potency: int):
+        super().__init__(name=name, id=id, duration=duration, potency=potency, target="self")
 
     def on_apply(self, target, ctx: CombatContext) -> None:
         target.base_stats.defense += self.potency
@@ -127,8 +128,8 @@ class DefenseBuffEffect(Effect):
         ))
 
 class LuckBuffEffect(Effect):
-    def __init__(self, name: str, duration: int, potency: int):
-        super().__init__(name=name, duration=duration, potency=potency, target="self")
+    def __init__(self, id: str, name: str, duration: int, potency: int):
+        super().__init__(name=name, id=id, duration=duration, potency=potency, target="self")
 
     def on_apply(self, target, ctx: CombatContext) -> None:
         target.base_stats.luck += self.potency

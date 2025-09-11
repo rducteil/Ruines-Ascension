@@ -10,8 +10,7 @@ from effects import StatPercentMod
 if TYPE_CHECKING:
     from core.attack import Attack
     from core.entity import Entity
-    from core.effects import Effect 
-    from core.equipment import Weapon, Armor, Artifact
+    from core.equipment import Weapon, Armor
 
 # ---- Protocols facultatifs (pour aider le typage sans import circulaire) ----
 

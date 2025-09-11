@@ -17,6 +17,32 @@ if TYPE_CHECKING:
     from core.equipment import Equipment
     from core.attack import Attack
 
+
+
+class Wallet:
+    """Porte-monnaie simple (or)."""
+    def __init__(self, gold: int = 0) -> None:
+        self._gold = max(0, int(gold))
+
+    @property
+    def gold(self) -> int:
+        return self._gold
+
+    def add(self, amount: int) -> int:
+        amount = int(amount)
+        if amount <= 0: return 0
+        self._gold += amount
+        return amount
+
+    def can_afford(self, amount: int) -> bool:
+        return self._gold >= max(0, int(amount))
+
+    def spend(self, amount: int) -> bool:
+        amount = int(amount)
+        if amount <= 0 or self._gold < amount: return False
+        self._gold -= amount
+        return True
+
 @dataclass
 class SupplyResult:
     events: list[CombatEvent]
@@ -123,26 +149,4 @@ class SupplyManager:
 
         return SupplyResult(events=[CombatEvent(text="Offre invalide.", tag="shop_invalid")], ok=False)
 
-class Wallet:
-    """Porte-monnaie simple (or)."""
-    def __init__(self, gold: int = 0) -> None:
-        self._gold = max(0, int(gold))
 
-    @property
-    def gold(self) -> int:
-        return self._gold
-
-    def add(self, amount: int) -> int:
-        amount = int(amount)
-        if amount <= 0: return 0
-        self._gold += amount
-        return amount
-
-    def can_afford(self, amount: int) -> bool:
-        return self._gold >= max(0, int(amount))
-
-    def spend(self, amount: int) -> bool:
-        amount = int(amount)
-        if amount <= 0 or self._gold < amount: return False
-        self._gold -= amount
-        return True

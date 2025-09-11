@@ -12,7 +12,7 @@ Ce module s'appuie sur:
 """
 
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Tuple, Any
+from typing import Callable, Any
 import random
 
 from core.attack import Attack
@@ -62,31 +62,31 @@ class DataValidationError(RuntimeError):
 @dataclass
 class GameData:
     # registres de contenu
-    attacks: Dict[str, Attack] = field(default_factory=dict)
-    loadouts: Dict[str, Loadout] = field(default_factory=dict)
-    player_classes: Dict[str, PlayerClass] = field(default_factory=dict)
+    attacks: dict[str, Attack] = field(default_factory=dict)
+    loadouts: dict[str, Loadout] = field(default_factory=dict)
+    player_classes: dict[str, PlayerClass] = field(default_factory=dict)
 
     # items consommables (factories)
-    item_factories: Dict[str, Callable[[], Item]] = field(default_factory=dict)
+    item_factories: dict[str, Callable[[], Item]] = field(default_factory=dict)
 
     # shop
-    shop_offers: List[ShopOffer] = field(default_factory=list)
-    shop_config: Dict[str, int] = field(default_factory=dict)
+    shop_offers: list[ShopOffer] = field(default_factory=list)
+    shop_config: dict[str, int] = field(default_factory=dict)
 
     # ennemis & rencontres
-    enemy_blueprints: Dict[str, EnemyBlueprint] = field(default_factory=dict)
-    encounters: Dict[str, Dict[str, List[Dict[str, Any]]]] = field(default_factory=dict)
+    enemy_blueprints: dict[str, EnemyBlueprint] = field(default_factory=dict)
+    encounters: dict[str, dict[str, list[dict[str, Any]]]] = field(default_factory=dict)
 
     # équipement (factories) + index zones -> ids
-    weapon_factories: Dict[str, Callable[[], Weapon]] = field(default_factory=dict)
-    armor_factories: Dict[str, Callable[[], Armor]] = field(default_factory=dict)
-    artifact_factories: Dict[str, Callable[[], Artifact]] = field(default_factory=dict)
-    equipment_zone_index: Dict[str, Dict[str, List[str]]] = field(default_factory=dict)
+    weapon_factories: dict[str, Callable[[], Weapon]] = field(default_factory=dict)
+    armor_factories: dict[str, Callable[[], Armor]] = field(default_factory=dict)
+    artifact_factories: dict[str, Callable[[], Artifact]] = field(default_factory=dict)
+    equipment_zone_index: dict[str, dict[str, list[str]]] = field(default_factory=dict)
 
     # ---------- Construction / chargement ----------
 
     @classmethod
-    def load(cls, *, strict_validate: bool = False) -> "GameData":
+    def load(cls, *, strict_validate: bool = False) -> GameData:
         """
         Charge toutes les banques depuis src/data (ou dossiers utilisateur),
         construit les objets et retourne une instance GameData prête à l'emploi.
@@ -139,13 +139,7 @@ class GameData:
 
     # ---------- Helpers: Ennemis / Rencontres ----------
 
-    def random_enemy_id(
-        self,
-        zone: str,
-        bucket: str = "normal",
-        *,
-        rng: Optional[random.Random] = None,
-    ) -> Optional[str]:
+    def random_enemy_id(self, zone: str, bucket: str = "normal", *, rng: random.Random | None = None) -> str| None:
         """
         Retourne un enemy_id aléatoire pour une zone donnée, pondéré par 'weight'.
         bucket ∈ {'normal', 'boss'}
@@ -158,7 +152,7 @@ class GameData:
         choice = rng.choices(rows, weights=weights, k=1)[0]
         return str(choice.get("enemy_id"))
 
-    def make_enemy(self, enemy_id: str, *, level: int) -> Optional[Enemy]:
+    def make_enemy(self, enemy_id: str, *, level: int) -> Enemy | None:
         """Construit un ennemi depuis son blueprint et un niveau."""
         bp = self.enemy_blueprints.get(enemy_id)
         if not bp:
@@ -166,30 +160,30 @@ class GameData:
         return bp.build(level=level)
 
     def spawn_random_enemy(
-        self, zone: str, *, level: int, bucket: str = "normal", rng: Optional[random.Random] = None
-    ) -> Optional[Enemy]:
+        self, zone: str, *, level: int, bucket: str = "normal", rng: random.Random | None = None
+    ) -> Enemy | None:
         """Sélectionne un enemy_id pour la zone, puis instancie l'Enemy correspondant."""
         eid = self.random_enemy_id(zone, bucket=bucket, rng=rng)
         return self.make_enemy(eid, level=level) if eid else None
 
     # ---------- Helpers: Équipement ----------
 
-    def make_weapon(self, wid: str) -> Optional[Weapon]:
+    def make_weapon(self, wid: str) -> Weapon | None:
         fac = self.weapon_factories.get(wid)
         return fac() if fac else None
 
-    def make_armor(self, aid: str) -> Optional[Armor]:
+    def make_armor(self, aid: str) -> Armor | None:
         fac = self.armor_factories.get(aid)
         return fac() if fac else None
 
-    def make_artifact(self, rid: str) -> Optional[Artifact]:
+    def make_artifact(self, rid: str) -> Artifact | None:
         fac = self.artifact_factories.get(rid)
         return fac() if fac else None
 
-    def equipment_ids_for_zone(self, zone: str) -> Dict[str, List[str]]:
+    def equipment_ids_for_zone(self, zone: str) -> dict[str, list[str]]:
         """Retourne les ids d’équipement disponibles pour une zone (par type)."""
         zone = zone.upper()
-        out: Dict[str, List[str]] = {"weapon": [], "armor": [], "artifact": []}
+        out: dict[str, list[str]] = {"weapon": [], "armor": [], "artifact": []}
         for kind, mapping in self.equipment_zone_index.items():
             for eid, zones in mapping.items():
                 if zone in zones:
@@ -198,16 +192,16 @@ class GameData:
 
     # ---------- Helpers: Items ----------
 
-    def make_item(self, item_id: str) -> Optional[Item]:
+    def make_item(self, item_id: str) -> Item | None:
         fac = self.item_factories.get(item_id)
         return fac() if fac else None
 
     # ---------- Helpers: Loadouts / Classes ----------
 
-    def get_class(self, key: str) -> Optional[PlayerClass]:
+    def get_class(self, key: str) -> PlayerClass | None:
         return self.player_classes.get(key)
 
-    def get_loadout_for_class(self, class_key: str) -> Optional[Loadout]:
+    def get_loadout_for_class(self, class_key: str) -> Loadout | None:
         return self.loadouts.get(class_key)
 
 

@@ -37,5 +37,3 @@ class PlayerClass:
         # Si présent, ajoute l'attaque de classe au joueur (pour l'UI)
         if self.class_attack is not None:
             setattr(player, "class_attack", self.class_attack)
-
-CLASSES: dict[str, PlayerClass] = {}

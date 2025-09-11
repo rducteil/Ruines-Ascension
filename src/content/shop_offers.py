@@ -2,8 +2,10 @@ from __future__ import annotations
 """Offres de ravitaillement (REST/REPAIR/SHOP) + parchemin d’attaque de classe."""
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    pass
 
 
 # Items vendus (ids définis dans content/items.py)
@@ -20,8 +22,8 @@ class ShopOffer:
     kind: str            # "item" | "class_scroll"
     name: str
     price: int
-    item_id: Optional[str] = None
-    class_key: Optional[str] = None
+    item_id: str | None = None
+    class_key: str | None = None
 
 def price_for_level(base: int, level: int) -> int:
     # petite inflation (≈ +10% / niveau)

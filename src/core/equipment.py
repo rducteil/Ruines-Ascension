@@ -7,7 +7,7 @@ Règles:
 """
 
 from dataclasses import dataclass
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from core.resource import Resource
 if TYPE_CHECKING:
@@ -26,7 +26,7 @@ class Equipment:
                  name: str,
                  durability_max: int,
                  description: str = "",
-                 _holder: Optional[Entity] = None,
+                 _holder: Entity | None = None,
                  _bonuses_applied: bool = False
                 ):
         self.name = name

@@ -2,22 +2,26 @@ from core.stats import Stats
 from core.player import Player
 from game.game_loop import GameLoop
 from ui.console_io import ConsoleIO
+from typing import TYPE_CHECKING
 
 # registre core + fusion "content" puis "data"
-from core.player_class import PlayerClass, CLASSES as CORE_CLASSES 
 from content.player_classes import CLASSES as CONTENT_CLASSES
-CORE_CLASSES.update(CONTENT_CLASSES)
 
 from core.data_loader import load_player_classes, load_attacks, load_loadouts
 from core.loadout import LoadoutManager
 from core.data_loader import load_player_classes
-CORE_CLASSES.update(load_player_classes())
+
+if TYPE_CHECKING:
+    from core.player import Player
+    from core.player_class import PlayerClass
+    from game.game_loop import GameIO
+CONTENT_CLASSES.update(load_player_classes())
 
 ATTACKS_REG = load_attacks()
 DEFAULT_LOADOUTS = load_attacks()
 DEFAULT_LOADOUTS = {str(k).strip().lower(): v for (k, v) in DEFAULT_LOADOUTS.items()}
 
-def _choose_class_key(io, classes_dict):
+def _choose_class_key(io: GameIO, classes_dict: dict):
     keys = list(classes_dict.keys())  # déjà en minuscules si tu as normalisé
     names = [classes_dict[k].name for k in keys]
     print("Choisis ta classe :")
@@ -28,12 +32,12 @@ def _choose_class_key(io, classes_dict):
         if ch.isdigit() and 1 <= int(ch) <= len(keys):
             return keys[int(ch)-1]
 
-def _resolve_loadout_for(player):
+def _resolve_loadout_for(player: Player):
     # candidates: clé interne + nom affiché
     candidates = []
-    if getattr(player, "player_class_key", None):
+    if player.player_class_key:
         candidates.append(player.player_class_key.strip().lower())
-    cls = getattr(player, "player_class", None)
+    cls: PlayerClass = player.player_class
     if cls and getattr(cls, "name", None):
         candidates.append(cls.name.strip().lower())
 
@@ -47,7 +51,7 @@ def _resolve_loadout_for(player):
 
 def main():
     io = ConsoleIO()
-    class_key = _choose_class_key(io, CORE_CLASSES)
+    class_key = _choose_class_key(io, CONTENT_CLASSES)
     p = Player(
         name="Moi",
         player_class_key=class_key,

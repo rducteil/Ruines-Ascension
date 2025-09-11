@@ -1,17 +1,19 @@
 from __future__ import annotations
 """I/O console (texte) pour piloter GameLoop, uniquement pour tests/dev."""
 
-from typing import List, Sequence, Optional
+from typing import TYPE_CHECKING
+from collections.abc import Sequence
 
-from core.player import Player
-from core.enemy import Enemy
-from core.attack import Attack
-from core.wallet import Wallet
+from core.supply import Wallet
 from content.shop_offers import ShopOffer
-
-# On importe uniquement les types "simples" depuis game_loop
 from game.game_loop import Section, SectionType, Zone, ZoneType
 
+if TYPE_CHECKING:
+    from core.player import Player
+    from core.enemy import Enemy
+    from core.attack import Attack
+    from core.inventory import Inventory
+    from core.combat import CombatResult
 
 class ConsoleIO:
     """Implémentation texte des callbacks I/O utilisés par GameLoop."""
@@ -21,87 +23,48 @@ class ConsoleIO:
     def on_battle_start(self, player: Player, enemy: Enemy) -> None:
         print(f"\n=== COMBAT: {player.name} vs {enemy.name} ===")
 
-    def present_events(self, result) -> None:
+    def present_events(self, result: CombatResult) -> None:
         # result est un CombatResult (type importé par GameLoop)
         for ev in result.events:
             print(" -", ev.text)
 
     def show_status(self, player: Player, enemy: Enemy) -> None:
         print(f"   PV {player.name}: {player.hp}/{player.max_hp}  |  PV {enemy.name}: {enemy.hp}/{enemy.max_hp}")
-        # Si tu as des SP visibles :
-        if hasattr(player, "sp") and hasattr(player, "max_sp"):
-            print(f"   SP {player.name}: {player.sp}/{player.max_sp}")
+        print(f"   SP {player.name}: {player.sp}/{player.max_sp}")
 
     def on_battle_end(self, player: Player, enemy: Enemy, victory: bool) -> None:
         msg = f"Victoire ! {enemy.name} est vaincu." if victory else f"Défaite… {player.name} tombe au combat."
         print(msg)
 
-    def choose_player_action(self, player, enemy, *, attacks, inventory):
-        print("\nChoisis une action :")
-        print("  1) Attaquer")
-        print("  2) Objet")
-        c = self._ask_index(2)
+    def choose_player_action(self, player: Player, enemy: Enemy, *, attacks: list[Attack], inventory: Inventory):
+        act = True
+        while act:
+            print("\nChoisis une action :")
+            print("  1) Attaquer")
+            print("  2) Objet")
+            c = self._ask_index(2)
 
-        if c == 0:
-            # Utiliser la liste "attacks" passée par GameLoop
-            print("\nChoisis une attaque :")
-            for i, a in enumerate(attacks, 1):
-                cost = getattr(a, "cost", 0)
-                dmg  = getattr(a, "base_damage", 0)
-                var  = getattr(a, "variance", 0)
-                print(f"  {i}) {a.name} (Dmg {dmg}±{var}, SP {cost})")
-            idx = self._ask_index(len(attacks))
-            return ("attack", attacks[idx])
-
-        # Objet
-        items = [row for row in inventory.list_summary() if row["kind"] == "item"]
-        if not items:
-            print("   (Aucun objet utilisable) → Attaque par défaut.")
-            return ("attack", attacks[0])
-        print("Objets :")
-        for i, it in enumerate(items, 1):
-            print(f"  {i}) {it['name']} x{it['qty']}")
-        idx = self._ask_index(len(items))
-        item_id = items[idx]["id"]
-        return ("item", item_id)         
-
-
-    def choose_player_attack(self, player: Player, enemy: Enemy, options=None) -> Attack:
-        """Menu simple: attaques d’arme spéciales + éventuelle attaque de classe + attaque basique."""
-        if options is None:
-            options: List[Attack] = []
-
-            # 1) attaques spéciales de l'arme si dispo
-            weapon = getattr(player, "weapon", None)
-            if weapon and hasattr(weapon, "get_available_attacks"):
-                specials = weapon.get_available_attacks()  # type: ignore[attr-defined]
-                if specials:
-                    options.extend(specials)
-
-            # 2) attaque de classe si dispo
-            class_attack = getattr(player, "class_attack", None)
-            if class_attack:
-                options.append(class_attack)
-
-            # 3) attaque basique par défaut (toujours disponible)
-            basic = Attack(name="Attaque basique", base_damage=5, variance=2, cost=0)
-            options.append(basic)
-
-            # Affichage menu
-            print("\nChoisis une attaque :")
-            for idx, atk in enumerate(options, start=1):
-                cost = getattr(atk, "cost", 0)
-                dmg = getattr(atk, "base_damage", 0)
-                var = getattr(atk, "variance", 0)
-                print(f"  {idx}) {atk.name}  (Dmg {dmg}±{var}, Cost SP {cost})")
-
-            choice = self._ask_index(len(options))
-            return options[choice]
-        print("\nChoisis une action : ")
-        for i, atk in enumerate(options, 1):
-            print(f"    {i}) {atk.name} (Dmg {atk.base_damage}±{atk.variance}, SP {atk.cost})")
-        idx = self._ask_index(len(options))
-        return options[idx]
+            if c == 0:
+                # Utiliser la liste "attacks" passée par GameLoop
+                print("\nChoisis une attaque :")
+                for i, a in enumerate(attacks, 1):
+                    cost = getattr(a, "cost", 0)
+                    dmg  = getattr(a, "base_damage", 0)
+                    var  = getattr(a, "variance", 0)
+                    print(f"  {i}) {a.name} (Dmg {dmg}±{var}, SP {cost})")
+                idx = self._ask_index(len(attacks))
+                return ("attack", attacks[idx])
+            elif c == 1:
+                # Objet
+                items = [row for row in inventory.list_summary() if row["kind"] == "item"]
+                if not items:
+                    print("   Aucun objet utilisable")
+                print("Objets :")
+                for i, it in enumerate(items, 1):
+                    print(f"  {i}) {it['name']} x{it['qty']}")
+                idx = self._ask_index(len(items))
+                item_id = items[idx]["id"]
+                return ("item", item_id)         
 
     # ---------- Zones / Sections ----------
 
@@ -120,7 +83,7 @@ class ConsoleIO:
         idx = self._ask_index(len(options))
         return options[idx]
 
-    def choose_supply_action(self, player, *, wallet: Wallet, offers):
+    def choose_supply_action(self, player: Player, *, wallet: Wallet, offers: ShopOffer):
         print(f"\n-- Ravitaillement -- Or: {wallet.gold}")
         print("  1) Se reposer")
         print("  2) Réparer (tout ce qu’on peut)")
