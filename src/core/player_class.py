@@ -5,10 +5,11 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from core.stats import Stats
-from core.attack import Attack
 
 if TYPE_CHECKING:
-    from core.entity import Entity
+    from core.player import Player
+    from core.attack import Attack
+    from core.equipment_set import EquipmentSet
 
 
 @dataclass
@@ -22,8 +23,9 @@ class PlayerClass:
     bonus_hp_max: int = 0
     bonus_sp_max: int = 0
     class_attack: Attack | None = None
+    class_base_equip: EquipmentSet = EquipmentSet(weapon=None, armor=None, artifact=None)
 
-    def apply_to(self, player: Entity) -> None:
+    def apply_to(self, player: "Player") -> None:
         """Applique les bonus au joueur crée (change les stats et ressources)."""
         # Stats bonus (flat)
         player.base_stats.attack += self.bonus_stats.attack
@@ -33,6 +35,11 @@ class PlayerClass:
         # Resource maxima (flat). Garde le ratio
         player.hp_res.set_maximum(player.hp_res.maximum + self.bonus_hp_max, preserve_ratio=True)
         player.sp_res.set_maximum(player.sp_res.maximum + self.bonus_sp_max, preserve_ratio=True)
+
+        # Equip de l'équipement de base
+        player.equipment.replace("weapon", self.class_base_equip.weapon)
+        player.equipment.replace("armot", self.class_base_equip.armor)
+        player.equipment.replace("artifact", self.class_base_equip.artifact)
 
         # Si présent, ajoute l'attaque de classe au joueur (pour l'UI)
         if self.class_attack is not None:

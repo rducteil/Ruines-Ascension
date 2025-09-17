@@ -5,8 +5,11 @@ from __future__ import annotations
 - Dépend de: core.stats, core.resource
 """
 
-from core.stats import Stats
+from typing import TYPE_CHECKING
 from core.resource import Resource
+
+if TYPE_CHECKING:
+    from core.stats import Stats
 
 
 class Entity:
@@ -30,7 +33,7 @@ class Entity:
     @property
     def max_hp(self): return self.hp_res.maximum
     @property
-    def sp(self): return self.hp_res.current
+    def sp(self): return self.sp_res.current
     @property
     def max_sp(self): return self.sp_res.maximum
 
@@ -58,4 +61,4 @@ class Entity:
         return self.hp > 0
     
     def __str__(self):
-        return f"HP : {self.hp}/{self.max_hp}\n", f"STA : {self.sp}/{self.max_sp}\n", f"ATK : {self.base_stats.attack}", f"DEF : {self.base_stats.defense}", f"LCK : {self.base_stats.luck}"
+        return (f"HP : {self.hp}/{self.max_hp}\n", f"STA : {self.sp}/{self.max_sp}\n", f"ATK : {self.base_stats.attack}", f"DEF : {self.base_stats.defense}", f"LCK : {self.base_stats.luck}")

@@ -21,7 +21,7 @@ ATTACKS_REG = load_attacks()
 DEFAULT_LOADOUTS = load_attacks()
 DEFAULT_LOADOUTS = {str(k).strip().lower(): v for (k, v) in DEFAULT_LOADOUTS.items()}
 
-def _choose_class_key(io: GameIO, classes_dict: dict):
+def _choose_class_key(classes_dict: dict) -> str:
     keys = list(classes_dict.keys())  # déjà en minuscules si tu as normalisé
     names = [classes_dict[k].name for k in keys]
     print("Choisis ta classe :")
@@ -51,7 +51,7 @@ def _resolve_loadout_for(player: Player):
 
 def main():
     io = ConsoleIO()
-    class_key = _choose_class_key(io, CONTENT_CLASSES)
+    class_key = _choose_class_key(CONTENT_CLASSES)
     p = Player(
         name="Moi",
         player_class_key=class_key,

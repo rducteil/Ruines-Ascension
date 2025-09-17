@@ -2,10 +2,11 @@ from __future__ import annotations
 """Loadout d'actions: 3 emplacements (primaire, compétence, utilitaire)."""
 
 from dataclasses import dataclass
-from typing import Literal, TypeAlias
+from typing import Literal, TypeAlias, TYPE_CHECKING
 from weakref import WeakKeyDictionary
 
-from core.attack import Attack
+if TYPE_CHECKING:
+    from core.attack import Attack
 
 Slot: TypeAlias = Literal["primary", "skill", "utility"]
 VALID_SLOT = ("primary", "skill", "utility")

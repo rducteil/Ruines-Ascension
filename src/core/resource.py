@@ -42,7 +42,7 @@ class Resource:
             self.maximum = max(0,new_max)
             self.current = min(self.current, self.maximum)
 
-def apply_max_mods(entity: Entity, mods: list[ResourceMaxMods], preserve_ratio: bool = True):
+def apply_max_mods(entity: "Entity", mods: list[ResourceMaxMods], preserve_ratio: bool = True):
     hp_pct  = sum(m.hp_max_pct for m in mods)
     hp_flat = sum(m.hp_max_flat for m in mods)
     sp_pct  = sum(m.sp_max_pct for m in mods)

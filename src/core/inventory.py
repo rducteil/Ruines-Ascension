@@ -9,13 +9,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal, TypeAlias
 
-from core.item import Item, Consumable
-
 if TYPE_CHECKING:
     from core.equipment import Equipment
     from core.entity import Entity
     from core.player import Player
     from core.combat import CombatEvent, CombatContext
+    from core.item import Item, Consumable
 
 Slot: TypeAlias = Literal["primary", "skill", "utility"]
 VALID_SLOT = ("primary", "skill", "utility")

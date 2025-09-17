@@ -2,9 +2,11 @@ from __future__ import annotations
 """Description déclarative (dégâts de base, variance, coût, effets) sans I/O ni RNG."""
 
 from dataclasses import dataclass, field
-from typing import Literal
-from core.effects import Effect 
+from typing import Literal, TYPE_CHECKING
 from core.utils import clamp
+
+if TYPE_CHECKING:
+    from core.effects import Effect 
 
 @dataclass
 class Attack:

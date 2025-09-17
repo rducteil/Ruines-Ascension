@@ -3,11 +3,11 @@ from __future__ import annotations
 
 from typing import Optional, TYPE_CHECKING
 from core.item import Consumable
-from core.combat_types import CombatEvent
+from core.combat import CombatEvent
 
 if TYPE_CHECKING:
     from core.entity import Entity
-    from core.combat_types import CombatContext
+    from core.combat import CombatContext
 
 
 class SmallHealingPotion(Consumable):
@@ -43,3 +43,9 @@ def make_item(item_id: str):
     if not cls:
         raise KeyError(f"Unknown item id: {item_id}")
     return cls()
+
+BASE_EQUIP = {
+    "base_weapon": None,
+    "base_armor": None,
+    "base_artifact": None
+}

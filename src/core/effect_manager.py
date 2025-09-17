@@ -12,10 +12,11 @@ from enum import Enum
 from weakref import WeakKeyDictionary
 import copy
 
-from core.combat import CombatContext, CombatEvent
-from core.effects import Effect
+from core.combat import CombatEvent
 if TYPE_CHECKING:
+    from core.combat import CombatContext
     from core.entity import Entity
+    from core.effects import Effect
 
 
 @dataclass

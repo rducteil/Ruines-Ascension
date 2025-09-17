@@ -25,11 +25,10 @@ import json
 from typing import TYPE_CHECKING
 
 # ——— Imports moteur ———
-from core.stats import Stats
 from core.player import Player
 from core.attack import Attack
 from core.resource import Resource
-from core.player_class import CLASSES as CLASS_REG
+from content.player_classes import CLASSES as CLASS_REG
 from core.inventory import Inventory
 from core.supply import Wallet
 from core.effects import Effect
@@ -38,13 +37,14 @@ from core.loadout import Loadout, LoadoutManager
 # from game.game_loop import GameLoop
 
 # Équipements concrets
-from core.equipment import Weapon, Armor, Artifact
 
 # Factories d'items (consommables)
 from content.items import ITEM_FACTORY as ITEM_FACTORY_CODE
 
 if TYPE_CHECKING:
     from game.game_loop import GameLoop
+    from core.equipment import Weapon, Armor, Artifact, Equipment
+    from core.effect_manager import EffectManager
 
 SAVE_VERSION = 1
 
@@ -97,7 +97,7 @@ def _attack_from_dict(d: dict) -> Attack:
     )
 
 
-def _equipment_slot_to_dict(slot_obj) -> dict | None:
+def _equipment_slot_to_dict(slot_obj: Equipment) -> dict | None:
     if slot_obj is None:
         return None
     base = {
@@ -179,21 +179,21 @@ def game_to_dict(loop: GameLoop) -> dict:
     player: Player = loop.player
     inv: Inventory = loop.player_inventory
     wallet: Wallet = loop.wallet
-    effects_mgr = getattr(loop, "effects", None)
+    effects_mgr: EffectManager = loop.effects
 
     # Player de base
     pdata = {
         "name": player.name,
-        "class_key": getattr(player, "player_class_key", None),
+        "class_key": player.player_class_key,
         "base_stats": {"attack": player.base_stats.attack, "defense": player.base_stats.defense, "luck": player.base_stats.luck},
         "hp": {"current": player.hp, "maximum": player.max_hp},
         "sp": {"current": player.sp, "maximum": player.max_sp},
     }
 
     # Zone/progression minimale
-    z = getattr(loop, "zone", None)
+    z = loop.zone
     zdata = {
-        "type": getattr(z, "zone_type", None).name if getattr(z, "zone_type", None) else None,
+        "type": z.zone_type.name if z.zone_type else None,
         "level": getattr(z, "level", 1),
         "explored": getattr(z, "explored", 0),
         "boss_ready": getattr(z, "boss_ready", False),
@@ -201,9 +201,9 @@ def game_to_dict(loop: GameLoop) -> dict:
 
     # Équipements (slots)
     equip = {
-        "weapon": _equipment_slot_to_dict(getattr(player, "weapon", None)),
-        "armor": _equipment_slot_to_dict(getattr(player, "armor", None)),
-        "artifact": _equipment_slot_to_dict(getattr(player, "artifact", None)),
+        "weapon": _equipment_slot_to_dict(player.weapon),
+        "armor": _equipment_slot_to_dict(player.armor),
+        "artifact": _equipment_slot_to_dict(player.artifact),
     }
 
     # Inventaire (items stackables)
@@ -213,7 +213,7 @@ def game_to_dict(loop: GameLoop) -> dict:
             inv_rows.append({"item_id": row["id"], "qty": int(row["qty"])})
 
     # Loadout courant (3 attaques + attaque de classe si existante)
-    lo_mgr = getattr(loop, "loadouts", None)
+    lo_mgr = loop.loadouts
     lo = lo_mgr.get(player) if lo_mgr else None
     ld = {}
     if lo:

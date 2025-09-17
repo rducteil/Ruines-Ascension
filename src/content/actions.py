@@ -10,28 +10,28 @@ from core.loadout import Loadout
 FRAPPER = Attack.basic(name="Frapper", base_damage=6, variance=2, cost=3)
 BRISE_GARDE = Attack.heavy(name="Brise-garde", base_damage=12, variance=3, cost=6, ignore_defense_pct=0.25)
 CHARGE = Attack(name="Charge", base_damage=0, cost=4, target="self",
-                effects=[AttackBuffEffect(id="charge", name="Charge", duration=1, potency=4)])
+                effects=[AttackBuffEffect(name="Charge", duration=1, potency=4)])
 
 ONDE = Attack.basic(name="Onde mentale", base_damage=5, variance=3, cost=2)
 CONCENTRATION = Attack(name="Concentration", base_damage=0, cost=5, target="self",
-                      effects=[AttackBuffEffect(id="concentration", name="Concentration", duration=1, potency=5)])
+                      effects=[AttackBuffEffect(name="Concentration", duration=1, potency=5)])
 SIPHON = Attack(name="Siphon vital", base_damage=3, variance=1, cost=4, true_damage=4)
 
 COUP_RAPIDE = Attack.basic(name="Coup rapide", base_damage=5, variance=3, cost=2)
 LAME_TOXIQUE = Attack(name="Lame toxique", base_damage=4, variance=1, cost=3,
-                      effects=[PoisonEffect("poison", "Poison", duration=2, potency=3)])
+                      effects=[PoisonEffect(name="Poison", duration=2, potency=3)])
 PARI = Attack(name="Pari", base_damage=0, cost=4, target="self",
-              effects=[LuckBuffEffect(id="pari_lck_buff", name="Pari: chance↑", duration=2, potency=5),
-                       DefenseBuffEffect(id="pari_luck_debuff", name="Pari: défense↓", duration=2, potency=-3)])
+              effects=[LuckBuffEffect(name="Pari: chance↑", duration=2, potency=5),
+                       DefenseBuffEffect(name="Pari: défense↓", duration=2, potency=-3)])
 
 PERCEE = Attack.basic(name="Percée", base_damage=6, variance=2, cost=3)
 MARQUE = Attack(name="Marque", base_damage=0, cost=3, target="enemy",
-                effects=[DefenseBuffEffect(id="armure_fragilise", name="Armure fragilisée", duration=2, potency=-4)])
+                effects=[DefenseBuffEffect(name="Armure fragilisée", duration=2, potency=-4)])
 FENTE = Attack(name="Fente oblique", base_damage=8, variance=1, cost=5)
 
 HEURT = Attack.basic(name="Heurt de bouclier", base_damage=5, variance=1, cost=2)
 GARDE = Attack(name="Garde", base_damage=0, cost=4, target="self",
-               effects=[DefenseBuffEffect(id="garde", name="Garde", duration=1, potency=6)])
+               effects=[DefenseBuffEffect(name="Garde", duration=1, potency=6)])
 ECRASEMENT = Attack.heavy(name="Écrasement", base_damage=11, variance=1, cost=6)
 
 # --- loadouts de départ (3 slots) ---

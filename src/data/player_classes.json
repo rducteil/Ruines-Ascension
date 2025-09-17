@@ -9,6 +9,11 @@
       "variance": 2,
       "cost": 10,
       "crit_multiplier": 2.5
+    },
+    "base_equip":{
+            "weapon": { "name": "Glaive rouillé", "durability_max": 100, "bonus_attack": 5, "description": "Un glaive générique rouillé par le sang et le temps"},
+            "armor": {"name": "Cuirasse rouillée", "durability_max": 100, "bonus_defense": 5, "description": "Une cuirasse générique rouillée par les coups et l'âge"},
+            "artifact": {"name": "Insigne rouillée", "durability_max": 100, "atk_pct": 0.05, "def_pct": 0.05, "lck_pct": 0.05, "description": "Une insigne générique rouillée par les larmes et le deuil"}
     }
   },
   "mystique": {
@@ -21,6 +26,11 @@
       "variance": 6,
       "cost": 16,
       "true_damage": 5
+    },
+    "base_equip":{
+            "weapon": { "name": "Vieux roseau enchanté", "durability_max": 100, "bonus_attack": 5, "description": "Un simple roseau respectueux des arcanes"},
+            "armor": {"name": "Vieux lambeau enchanté", "durability_max": 100, "bonus_defense": 5, "description": "Un simple lambeau docile aux secrets"},
+            "artifact": {"name": "Vieux fil de lin enchanté", "durability_max": 100, "atk_pct": 0.05, "def_pct": 0.05, "lck_pct": 0.05, "description": "Un simple fil de lin soumis au Mystique"}
     }
   },
   "vagabond": {
@@ -34,6 +44,11 @@
       "variance": 5,
       "cost": 10,
       "crit_multiplier": 3.0
+    },
+    "base_equip":{
+            "weapon": { "name": "Lame de ferraille", "durability_max": 100, "bonus_attack": 5, "description": "Une lame de pacotille mais audacieuse face à l'adversité"},
+            "armor": {"name": "Gilet de ferraille", "durability_max": 100, "bonus_defense": 5, "description": "Un gilet de pacotille mais tenace face aux difficultés"},
+            "artifact": {"name": "Pièce de ferraille", "durability_max": 100, "atk_pct": 0.05, "def_pct": 0.05, "lck_pct": 0.05, "description": "Une pièce de pacotille mais fétiche face aux mésaventures"}
     }
   },
   "arpenteur": {
@@ -47,6 +62,11 @@
       "variance": 2,
       "cost": 10,
       "ignore_defense_pct": 0.5
+    },
+    "base_equip":{
+            "weapon": { "name": "Pique cabossé", "durability_max": 100, "bonus_attack": 5, "description": "Un pique fragmenté qui vise les jointures"},
+            "armor": {"name": "Maille cabossée", "durability_max": 100, "bonus_defense": 5, "description": "Une maille morcelée qui endure les coups"},
+            "artifact": {"name": "Bousole cabossée", "durability_max": 100, "atk_pct": 0.05, "def_pct": 0.05, "lck_pct": 0.05, "description": "Une bousole accidentée qui guide les égarés"}
     }
   },
   "sentinelle": {
@@ -58,6 +78,11 @@
       "base_damage": 20,
       "variance": 0,
       "cost": 20
+    },
+    "base_equip":{
+            "weapon": { "name": "Masse émoussé", "durability_max": 100, "bonus_attack": 5, "description": "Une lourde masse imbue de zèle"},
+            "armor": {"name": "Plastron émoussé", "durability_max": 100, "bonus_defense": 5, "description": "Un lourd plastron imbu ferveur"},
+            "artifact": {"name": "Amulette émoussé", "durability_max": 100, "atk_pct": 0.05, "def_pct": 0.05, "lck_pct": 0.05, "description": "Une lourde amulette imbue de piété"}
     }
   }
 }

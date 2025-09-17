@@ -5,12 +5,13 @@ from dataclasses import dataclass
 from typing import Any, TYPE_CHECKING
 import random
 from core.utils  import clamp
-from effects import StatPercentMod
 
 if TYPE_CHECKING:
     from core.attack import Attack
     from core.entity import Entity
     from core.equipment import Weapon, Armor
+    from core.effects import StatPercentMod
+    from core.player import Player
 
 # ---- Protocols facultatifs (pour aider le typage sans import circulaire) ----
 
@@ -130,10 +131,8 @@ class CombatEngine:
         pct = self._gather_pct(entity, which="defense")
         return int(round(base * (1.0 + pct)))
 
-    def _gather_pct(self, entity: Entity, which: str) -> float:
-        art = getattr(entity, "artifact", None)
-        if not art or not hasattr(art, "stat_percent_mod"):
-            return 0.0
+    def _gather_pct(self, entity: Player, which: str) -> float:
+        art = entity.artifact
         mod : StatPercentMod = art.stat_percent_mod()
         return float(getattr(mod, f"{which}_pct", 0.0))
 

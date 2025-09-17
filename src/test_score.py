@@ -1,5 +1,5 @@
 from core.player import Player
-from core.player_class import CLASSES
+from content.player_classes import CLASSES
 from core.equipment import Weapon, Armor, Artifact
 
 # Crée un joueur de classe Arpenteur

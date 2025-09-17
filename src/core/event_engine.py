@@ -33,12 +33,12 @@ from typing import Any, Callable, Sequence, TYPE_CHECKING
 from pathlib import Path
 
 from core.combat import CombatEvent, CombatContext, CombatResult
-from core.effects import Effect
-from core.effect_manager import EffectManager
 from core.data_paths import default_data_dirs
 
 if TYPE_CHECKING:
     from core.player import Player
+    from core.effects import Effect
+    from core.effect_manager import EffectManager
 
 # Types légers
 @dataclass

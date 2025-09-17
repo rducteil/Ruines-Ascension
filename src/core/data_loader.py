@@ -27,6 +27,7 @@ from core.effect_manager import EffectManager
 from content.shop_offers import ShopOffer
 from core.enemy import Enemy  
 from core.equipment import Weapon, Armor, Artifact
+from core.equipment_set import EquipmentSet
 from core.combat import CombatEvent
 
 
@@ -64,11 +65,37 @@ def load_player_classes(merge_into: dict[str, PlayerClass] | None = None) -> dic
         bonus_hp = int(row.get("bonus_hp_max", 0))
         bonus_sp = int(row.get("bonus_sp_max", 0))
 
-        # attaque de classe optionnelle
+        # l'equipement set de base
+        base_equip: dict[str, dict] = row.get("base_equip", {})
+        base_weapon = Weapon(
+            name=base_equip.get("weapon", {}).get("name", "name"),
+            durability_max=base_equip.get("weapon", {}).get("durability_max", 0),
+            bonus_attack=base_equip.get("weapon", {}).get("bonus_attack", 0),
+            description=base_equip.get("weapon", {}).get("description", "")
+        )
+        base_armor = Armor(
+            name=base_equip.get("armor", {}).get("name", "name"),
+            durability_max=base_equip.get("armor", {}).get("durability_max", 0),
+            bonus_defense=base_equip.get("armor", {}).get("bonus_defense", 0),
+            description=base_equip.get("armor", {}).get("description", "")
+        )
+        base_artifact = Artifact(
+            name=base_equip.get("artifact", {}).get("name", "name"),
+            durability_max=base_equip.get("artifact", {}).get("durability_max", 0),
+            atk_pct=base_equip.get("artifact", {}).get("atk_pct", 0.0),
+            def_pct=base_equip.get("artifact", {}).get("def_pct", 0.0),
+            lck_pct=base_equip.get("artifact", {}).get("lck_pct", 0.0),
+            description=base_equip.get("artifact", {}).get("description", "")
+        )
+        class_base_equip = EquipmentSet(
+            weapon=base_weapon,
+            armor=base_armor,
+            artifact=base_artifact
+        )
+
+        # attaque de classe
         atk_def: dict = row.get("attack")
-        class_attack = None
-        if isinstance(atk_def, dict):
-            class_attack = _attack_from_dict(atk_def)
+        class_attack = _attack_from_dict(atk_def)
 
         result[key] = PlayerClass(
             name=name,
@@ -76,6 +103,7 @@ def load_player_classes(merge_into: dict[str, PlayerClass] | None = None) -> dic
             bonus_hp_max=bonus_hp,
             bonus_sp_max=bonus_sp,
             class_attack=class_attack,
+            class_base_equip=class_base_equip
         )
     return result
 
