@@ -61,4 +61,4 @@ class Entity:
         return self.hp > 0
     
     def __str__(self):
-        return (f"HP : {self.hp}/{self.max_hp}\n", f"STA : {self.sp}/{self.max_sp}\n", f"ATK : {self.base_stats.attack}", f"DEF : {self.base_stats.defense}", f"LCK : {self.base_stats.luck}")
+        return f"HP : {self.hp}/{self.max_hp}\n" + f"STA : {self.sp}/{self.max_sp}\n" + f"ATK : {self.base_stats.attack}\n" + f"DEF : {self.base_stats.defense}\n" + f"LCK : {self.base_stats.luck}\n"

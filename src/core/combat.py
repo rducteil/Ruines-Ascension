@@ -5,13 +5,15 @@ from dataclasses import dataclass
 from typing import Any, TYPE_CHECKING
 import random
 from core.utils  import clamp
+from core.attack import Attack
 
 if TYPE_CHECKING:
-    from core.attack import Attack
     from core.entity import Entity
     from core.equipment import Weapon, Armor
+    from core.equipment_set import EquipmentSet
     from core.effects import StatPercentMod
     from core.player import Player
+    from core.enemy import Enemy
 
 # ---- Protocols facultatifs (pour aider le typage sans import circulaire) ----
 
@@ -58,7 +60,10 @@ class CombatEngine:
     def resolve_turn(self, attacker: Entity, defender: Entity, attack: Attack) -> CombatResult:
         events: list[CombatEvent] = []
         ctx = CombatContext(attacker=attacker, defender=defender, events=events)
-
+        # On vérifie que c'est bien une attaque
+        if not isinstance(attack, Attack):
+            # soit lever un TypeError explicite:
+            raise TypeError(f"Expected Attack, got {type(attack).__name__}")
         # 1) Coût en SP (si non payé -> pas d'attaque)
         cost = attack.cost
         if cost and not attacker.spend_sp(cost):
@@ -132,7 +137,7 @@ class CombatEngine:
         return int(round(base * (1.0 + pct)))
 
     def _gather_pct(self, entity: Player, which: str) -> float:
-        art = entity.artifact
+        art = entity.equipment.artifact
         mod : StatPercentMod = art.stat_percent_mod()
         return float(getattr(mod, f"{which}_pct", 0.0))
 
@@ -153,20 +158,23 @@ class CombatEngine:
 
     # ---------- Usure ----------
 
-    def _wear_after_attack(self, attacker: Entity, ctx: CombatContext, events: list[CombatEvent]) -> None:
-        weapon: Weapon = getattr(attacker, "weapon", None)
-        if weapon and hasattr(weapon, "on_after_attack"):
-            was_broken = getattr(weapon, "is_broken", lambda: False)()
-            weapon.on_after_attack(ctx)
-            now_broken = getattr(weapon, "is_broken", lambda: False)()
-            if not was_broken and now_broken:
-                events.append(CombatEvent(text=f"L'arme de {attacker.name} se casse !", tag="weapon_broken"))
+    def _wear_after_attack(self, attacker: Player | Enemy, ctx: CombatContext, events: list[CombatEvent]) -> None:
+        if getattr(attacker, "equipment", None):
+            atk_weapon: Weapon = attacker.equipment.weapon
+            if hasattr(atk_weapon, "on_after_attack"):
+                was_broken = getattr(atk_weapon, "is_broken", lambda: False)()
+                atk_weapon.on_after_attack(ctx)
+                now_broken = getattr(atk_weapon, "is_broken", lambda: False)()
+                if not was_broken and now_broken:
+                    events.append(CombatEvent(text=f"L'arme de {attacker.name} se casse !", tag="weapon_broken"))
 
-    def _wear_after_hit(self, defender: Entity, ctx: CombatContext, events: list[CombatEvent]) -> None:
-        armor: Armor = getattr(defender, "armor", None)
-        if armor and hasattr(armor, "on_after_hit"):
-            was_broken = getattr(armor, "is_broken", lambda: False)()
-            armor.on_after_hit(ctx, damage_taken=ctx.damage_dealt)
-            now_broken = getattr(armor, "is_broken", lambda: False)()
-            if not was_broken and now_broken:
-                events.append(CombatEvent(text=f"L'armure de {defender.name} se brise !", tag="armor_broken"))
+
+    def _wear_after_hit(self, defender: Player | Enemy, ctx: CombatContext, events: list[CombatEvent]) -> None:
+        if getattr(defender, "equipment", None):
+            def_armor: Armor = defender.equipment.armor
+            if hasattr(def_armor, "on_after_hit"):
+                was_broken = getattr(def_armor, "is_broken", lambda: False)()
+                def_armor.on_after_hit(ctx, damage_taken=ctx.damage_dealt)
+                now_broken = getattr(def_armor, "is_broken", lambda: False)()
+                if not was_broken and now_broken:
+                    events.append(CombatEvent(text=f"L'armure de {defender.name} se brise !", tag="armor_broken"))

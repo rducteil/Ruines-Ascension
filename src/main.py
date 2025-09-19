@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 CONTENT_CLASSES.update(load_player_classes())
 
 ATTACKS_REG = load_attacks()
-DEFAULT_LOADOUTS = load_attacks()
+DEFAULT_LOADOUTS = load_loadouts(ATTACKS_REG)
 DEFAULT_LOADOUTS = {str(k).strip().lower(): v for (k, v) in DEFAULT_LOADOUTS.items()}
 
 def _choose_class_key(classes_dict: dict) -> str:
@@ -33,6 +33,13 @@ def _choose_class_key(classes_dict: dict) -> str:
             return keys[int(ch)-1]
 
 def _resolve_loadout_for(player: Player):
+    # garde fou
+    if not DEFAULT_LOADOUTS:
+        from core.attack import Attack
+        from core.loadout import Loadout
+        # petit loadout minimal pour ne pas crasher
+        return Loadout(primary=Attack(name="Frapper", base_damage=5, variance=2, cost=0),
+                       skill=None, utility=None)
     # candidates: clé interne + nom affiché
     candidates = []
     if player.player_class_key:

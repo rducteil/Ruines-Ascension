@@ -7,9 +7,12 @@ from __future__ import annotations
 """
 
 from typing import TYPE_CHECKING
+from math import inf
 
 from core.entity import Entity
 from core.stats import Stats
+from core.equipment import Weapon, Armor, Artifact
+from core.equipment_set import EquipmentSet
 
 if TYPE_CHECKING:
     pass
@@ -30,12 +33,20 @@ class Enemy(Entity):
         super().__init__(name=name, base_stats=base_stats, base_hp_max=base_hp_max, base_sp_max=base_sp_max)
         self.behavior: str | None = behavior  # e.g., "aggressif", "défensif"
         self.effect: object | None = None
+        self.equipment: EquipmentSet = EquipmentSet(
+            weapon=Weapon(name="Membre", durability_max=inf),
+            armor=Armor(name="Chair", durability_max=inf),
+            artifact=Artifact(name="Malice", durability_max=inf)
+        )
 
     def choose_action(self) -> str:
         """Very simple placeholder AI.
         TODO: Replace with a proper action selection (weights, cooldowns, states).
         """
         return "basic_attack"
+    
+    def __str__(self):
+        return f"{self.name}\n" + super().__str__()
 
     # Factory helpers for tests/demo
     @staticmethod

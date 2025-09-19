@@ -68,13 +68,13 @@ class SupplyManager:
         return SupplyResult(events=ev)
 
     # --- REPAIR ---
-    def repair_all_you_can_afford(self, player, price_per_point: int = shop_offers.REPAIR_COST_PER_POINT) -> SupplyResult:
+    def repair_all_you_can_afford(self, player: Player, price_per_point: int = shop_offers.REPAIR_COST_PER_POINT) -> SupplyResult:
         ev: list[CombatEvent] = []
         spent = 0
 
         # On répare weapon + armor si présents
         for slot in ("weapon", "armor"):
-            eq: Equipment = getattr(player, slot, None)
+            eq: Equipment = getattr(player.equipment, slot, None)
             if not eq:
                 continue
             need = eq.durability.maximum - eq.durability.current

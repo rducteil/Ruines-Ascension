@@ -7,6 +7,7 @@ from weakref import WeakKeyDictionary
 
 if TYPE_CHECKING:
     from core.attack import Attack
+    from core.entity import Entity
 
 Slot: TypeAlias = Literal["primary", "skill", "utility"]
 VALID_SLOT = ("primary", "skill", "utility")
@@ -30,10 +31,10 @@ class Loadout:
 class LoadoutManager:
     """Associe un Loadout à une entité sans modifier Player/Entity."""
     def __init__(self) -> None:
-        self._by_entity: WeakKeyDictionary[object, Loadout] = WeakKeyDictionary()
+        self._by_entity: WeakKeyDictionary["Entity", Loadout] = WeakKeyDictionary()
 
-    def set(self, entity: object, loadout: Loadout) -> None:
+    def set(self, entity: "Entity", loadout: Loadout) -> None:
         self._by_entity[entity] = loadout
 
-    def get(self, entity: object) -> Loadout | None:
+    def get(self, entity: "Entity") -> Loadout | None:
         return self._by_entity.get(entity)

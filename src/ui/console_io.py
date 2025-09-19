@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from collections.abc import Sequence
+from time import sleep
 
 from core.supply import Wallet
 from content.shop_offers import ShopOffer
@@ -21,7 +22,10 @@ class ConsoleIO:
     # ---------- Combats ----------
 
     def on_battle_start(self, player: Player, enemy: Enemy) -> None:
-        print(f"\n=== COMBAT: {player.name} vs {enemy.name} ===")
+        print(f"\n=== COMBAT: {player.name} vs {enemy.name} ===\n")
+        sleep(0.1)
+        print(enemy)
+        sleep(1)
 
     def present_events(self, result: CombatResult) -> None:
         # result est un CombatResult (type importé par GameLoop)
@@ -35,9 +39,12 @@ class ConsoleIO:
     def on_battle_end(self, player: Player, enemy: Enemy, victory: bool) -> None:
         msg = f"Victoire ! {enemy.name} est vaincu." if victory else f"Défaite… {player.name} tombe au combat."
         print(msg)
+        sleep(1)
 
     def choose_player_action(self, player: Player, enemy: Enemy, *, attacks: list[Attack], inventory: Inventory):
         act = True
+        print(player)
+        sleep(0.5)
         while act:
             print("\nChoisis une action :")
             print("  1) Attaquer")
@@ -48,11 +55,13 @@ class ConsoleIO:
                 # Utiliser la liste "attacks" passée par GameLoop
                 print("\nChoisis une attaque :")
                 for i, a in enumerate(attacks, 1):
+                    nm = getattr(a, "name", "???")
                     cost = getattr(a, "cost", 0)
                     dmg  = getattr(a, "base_damage", 0)
                     var  = getattr(a, "variance", 0)
-                    print(f"  {i}) {a.name} (Dmg {dmg}±{var}, SP {cost})")
+                    print(f"  {i}) {nm} (Dmg {dmg}±{var}, SP {cost})")
                 idx = self._ask_index(len(attacks))
+                sleep(0.5)
                 return ("attack", attacks[idx])
             elif c == 1:
                 # Objet
@@ -64,23 +73,28 @@ class ConsoleIO:
                     print(f"  {i}) {it['name']} x{it['qty']}")
                 idx = self._ask_index(len(items))
                 item_id = items[idx]["id"]
+                sleep(0.5)
                 return ("item", item_id)         
 
     # ---------- Zones / Sections ----------
 
     def on_zone_start(self, zone: Zone) -> None:
         print(f"\n=== Entrée dans la zone: {zone.zone_type.name} (Niveau {zone.level}) ===")
+        sleep(1)
 
     def on_zone_cleared(self, zone: Zone) -> None:
         print(f"=== Zone {zone.zone_type.name} nettoyée ! ===")
+        sleep(1)
 
     def choose_section(self, zone: Zone, options: Sequence[Section]) -> Section:
         """Propose 2 sections de types différents et renvoie le choix de l’utilisateur."""
         print("\nProchaine section :")
+        sleep(0.2)
         for i, s in enumerate(options, start=1):
             label = self._label_section(s.kind)
             print(f"  {i}) {label}")
         idx = self._ask_index(len(options))
+        sleep(1)
         return options[idx]
 
     def choose_supply_action(self, player: Player, *, wallet: Wallet, offers: ShopOffer):

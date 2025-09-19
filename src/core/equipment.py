@@ -10,11 +10,11 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from core.resource import Resource
+from core.effects import StatPercentMod
 if TYPE_CHECKING:
     from core.entity import Entity
     from core.attack import Attack
     from core.combat import CombatContext
-    from core.effects import StatPercentMod
 
 
 class Equipment:

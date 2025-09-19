@@ -43,9 +43,3 @@ def make_item(item_id: str):
     if not cls:
         raise KeyError(f"Unknown item id: {item_id}")
     return cls()
-
-BASE_EQUIP = {
-    "base_weapon": None,
-    "base_armor": None,
-    "base_artifact": None
-}

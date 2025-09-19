@@ -150,11 +150,17 @@ def load_loadouts(attacks_registry: dict[str, Attack]) -> dict[str, Loadout]:
     res: dict[str, Loadout] = {}
     if not isinstance(raw, dict):
         return res
+    
+    def _resolve(key):
+    # autoriser None / 0 / "" / "none" comme slot vide
+        if key in (None, "", 0, "none", "NONE", "null", "Null"):
+            return None
+        return deepcopy(attacks_registry[key])
     for class_key, row in raw.items():
         try:
-            p = deepcopy(attacks_registry[row["primary"]])
-            s = deepcopy(attacks_registry[row["skill"]])
-            u = deepcopy(attacks_registry[row["utility"]])
+            p = _resolve(attacks_registry[row["primary"]])
+            s = _resolve(attacks_registry[row["skill"]])
+            u = _resolve(attacks_registry[row["utility"]])
             res[class_key] = Loadout(primary=p, skill=s, utility=u)
         except Exception:
             # clé manquante → on saute

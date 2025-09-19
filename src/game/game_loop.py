@@ -30,7 +30,6 @@ from core.event_engine import EventEngine
 from core.save import save_to_file, load_from_file
 from core.data_loader import load_enemy_blueprints, load_encounter_tables, load_equipment_banks, load_equipment_zone_index
 from content.effects_bank import make_effect
-from core.equipment import Weapon
 
 
 
@@ -318,9 +317,6 @@ class GameLoop:
             self._grant_gold(g)
         if self.io:
             self.io.on_battle_end(self.player, enemy, victory=(self.player.hp > 0 and enemy.hp <= 0))
-        if self.io:
-            self.io.present_text(f"[DEBUG] Après combat → HP {self.player.hp}/{self.player.max_hp}, "
-                                f"SP {self.player.sp}/{self.player.max_sp}")
     
     def _gather_player_attacks(self) -> list[Attack]:
         atks: list[Attack] = []
@@ -333,8 +329,11 @@ class GameLoop:
         if self.player.player_class.class_attack:
             atks.append(self.player.player_class.class_attack)
         # attaques d'arme
-        if self.player.weapon.bonus_attack:
-            atks.append(self.player.weapon.bonus_attack)
+        if self.player.equipment.weapon.bonus_attack:
+            atks.append(self.player.equipment.weapon.bonus_attack)
+
+        # Verification
+        atks = [a for a in atks if isinstance(a, Attack)]
         return atks
 
     def _choose_player_action(self, enemy: Enemy) -> tuple[str, Any]:
@@ -465,8 +464,10 @@ class GameLoop:
                 action = self.io.choose_supply_action(self.player, wallet=self.wallet, offers=offers)
                 if action == "REST":
                     res = mgr.do_rest(self.player, hp_pct=REST_HP_PCT, sp_pct=REST_SP_PCT)
+                    break
                 elif action == "REPAIR":
                     res = mgr.repair_all_you_can_afford(self.player, price_per_point=REPAIR_COST_PER_POINT)
+                    break
                 elif action == "SHOP":
                     # laisser l’IO sélectionner une offre + quantité
                     if hasattr(self.io, "choose_shop_purchase"):
@@ -478,6 +479,7 @@ class GameLoop:
                             res = mgr.buy_offer(self.player, offer, qty=qty)
                     else:
                         res = None
+                    break
                 elif action == "SAVE":
                     ok = save_to_file(self, "save_slot_1.json")
                     if self.io:

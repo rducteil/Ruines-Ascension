@@ -11,10 +11,10 @@ from typing import TYPE_CHECKING, Literal, TypeAlias
 from core.entity import Entity
 from core.player_class import PlayerClass
 from content.player_classes import CLASSES as CLASSES_CONTENT
+from core.equipment_set import EquipmentSet, NO_EQUIP
 
 if TYPE_CHECKING:
     from core.equipment import Equipment, Weapon, Armor, Artifact
-    from core.equipment_set import EquipmentSet
     from core.stats import Stats
 
 Slot: TypeAlias = Literal["weapon", "armor", "artifact"]
@@ -34,7 +34,7 @@ class Player(Entity):
         super().__init__(name=name, base_stats=base_stats, base_hp_max=base_hp_max, base_sp_max=base_sp_max)
 
         # Equipment slots:
-        self.equipment: EquipmentSet = EquipmentSet(weapon=None, armor=None, artifact=None)
+        self.equipment: EquipmentSet = EquipmentSet(weapon=NO_EQUIP.weapon, armor=NO_EQUIP.armor, artifact=NO_EQUIP.artifact)
 
         # Applique bonus de classe (stats + resources + equip) if provided
         self.player_class_key = (player_class_key or "").strip().lower()
@@ -45,40 +45,40 @@ class Player(Entity):
     def __str__(self):
         return f"{self.name} ({self.player_class.name})\n" + super().__str__()
 
-    def equip(self, item: "Equipment", slot: Slot) -> None:
-        """Equip un item dans slot ("weapon", "armor", "artifact")."""
-        # Vérifie le bon slot
+    def equip(self, new_item: "Equipment", slot: Slot):
+        """Equipe un item dans le bon slot du set"""
+        # Vérifie que c'est le bon slot
         if slot not in VALID_SLOT:
-            raise ValueError(f"slot invalide {slot}") 
-        # On vérifie que l'item n'a pas de holder
-        current_holder: Entity | None = getattr(item, "_holder", None)
+            raise ValueError(f"slot invalid {slot}")
+        # Vérifie que l'item n'a pas de holder
+        current_holder: "Player" | None = getattr(new_item, "_holder", None)
         if current_holder and current_holder is not self:
-            item.on_unequip(current_holder)
-        # On unequip si player a déja un item
-        current_item: "Equipment" | None = getattr(self, slot, None)
-        if current_item:
-            current_item.on_unequip(self)
-        # Donne l'item au player et applique les bonus
-        setattr(self, slot, item)
-        item.on_equip(self)
+            new_item.on_unequip(current_holder)
+        # On unequip l'item présent, equip le nouvel item et actualise le set
+        current_item: "Equipment" = getattr(self.equipment, slot, None)
+        current_item.on_unequip(self)
+        new_item.on_equip(self)
+        self.equipment.replace(slot=slot, item=new_item)
 
     def unequip(self, slot: Slot) -> None:
         # Vérifie le bon slot
         if slot not in VALID_SLOT:
             raise ValueError(f"slot invalide {slot}") 
-        item: "Equipment" | None = getattr(self, slot, None)
-        if item:
-            item.on_unequip(self)
-            setattr(self, slot, None)
+        item: "Equipment" = self.equipment.get(slot)
+        item.on_unequip(self)
+        no_equip : "Equipment" = getattr(NO_EQUIP, slot, None)
+        no_equip.on_equip(self)
+        self.equipment.replace(slot=slot, item=no_equip)
+            
 
     def print_equipment(self) -> None:
         # Console helper (safe no-op for other UIs)
-        w = getattr(self.weapon, "name", "Aucune") if self.weapon else "Aucune"
-        a = getattr(self.armor, "name", "Aucune") if self.armor else "Aucune"
-        r = getattr(self.artifact, "name", "Aucun") if self.artifact else "Aucun"
+        w = self.equipment.weapon
+        a = self.equipment.armor
+        r = self.equipment.artifact
         print("Équipement actuel :")
-        print(f"  Arme     : {w}")
-        print(f"  Armure   : {a}")
-        print(f"  Artefact : {r}")
+        print(f"  Arme     : {w.name} ({w.description})")
+        print(f"  Armure   : {a.name} ({a.description})")
+        print(f"  Artefact : {r.name} ({r.description})")
 
 

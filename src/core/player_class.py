@@ -5,11 +5,11 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from core.stats import Stats
+from core.equipment_set import EquipmentSet
 
 if TYPE_CHECKING:
     from core.player import Player
     from core.attack import Attack
-    from core.equipment_set import EquipmentSet
 
 
 @dataclass
