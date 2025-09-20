@@ -164,6 +164,7 @@ class GameLoop:
     # -------------
     def run(self) -> None:
         """Boucle principale. S'arrête si le joueur meurt ou si on set running=False."""
+        self.io.present_text(f"[DEBUG] {len(self.event_engine._events)} events chargés")
         while self.running and self.player.hp > 0:
             # Début de zone
             if self.io:
@@ -281,7 +282,7 @@ class GameLoop:
 
         while self.player.hp > 0 and enemy.hp > 0 and self.running:
             # --- Tour du joueur ---
-            act_kind, payload = self._choose_player_action(enemy)
+            act_kind, payload = self._choose_player_action(enemy, self.engine)
             if act_kind == "item":
                 res_p = self._use_item_in_combat(payload) # payload = item_id
             elif act_kind == "attack":
@@ -331,8 +332,8 @@ class GameLoop:
         if lo and getattr(lo, "primary", None): atks.append(lo.primary)
         if lo and getattr(lo, "skill", None):   atks.append(lo.skill)
         if lo and getattr(lo, "utility", None): atks.append(lo.utility)
-        # attaque de classe
-        if self.player.player_class.class_attack:
+        # attaque de classe (si débloqué)
+        if self.player.player_class.class_attack  and self.player.class_attack_unlocked:
             atks.append(self.player.player_class.class_attack)
         # attaques d'arme
         if self.player.equipment.weapon.bonus_attack:
@@ -385,22 +386,38 @@ class GameLoop:
         - Si l'effet a une `duration` > 0, on l'enregistre pour des ticks futurs.
         """
         if result.defender_alive:
-            if not attack.effects:
+            effs = getattr(attack, "effects", None)
+            if not effs:
                 return
+            
             # Choix de la cible: par défaut sur le défenseur; si attack.target == "self", sur l'attaquant
             target = attacker if getattr(attack, "target", "enemy") == "self" else defender
 
             # Contexte d'événements pour le log
-            events = []
+            events: list[CombatEvent] = []
             ctx = CombatContext(attacker=attacker, defender=defender, events=events)
 
-            for eff in attack.effects:
-                e2 = self._clone_effect_instance(eff)   # <-- NOUVEAU : clone par application
+            # On applati si besoin
+            if not isinstance(effs, list):
+                effs = [effs]
+            flat: list = []
+            for e in effs:
+                if isinstance(e, list):
+                    flat.extend(e)
+                else:
+                    flat.append(e)
+                    
+            for raw in flat:
+                e2 = self._instantiate_effect(raw)
+                if not e2:
+                    continue
                 try:
-                    self.effects.apply(target, e2, source_name=f"attack:{attack.name}", ctx=ctx)
+                    self.effects.apply(target, e2, source_name=f"attack:{attack.name}", ctx=ctx, max_stacks=getattr(e2, "max_stack", 1))
                 except Exception:
-                    # fallback hyper sûr : applique “à sec”
-                    e2.on_apply(target, ctx)
+                    try:
+                        e2.on_apply(target, ctx)
+                    except Exception:
+                        pass
 
             # on pousse les logs dans le flux d’événements courant
             if self.io and events:
@@ -422,6 +439,7 @@ class GameLoop:
     def _handle_event_section(self) -> None:
         """Présente un évènement data-driven et applique le choix."""
         # 1) choisir un événement compatible avec la zone courante
+        self.io.present_text(f"[DEBUG] zone={self.zone.zone_type.name}")
         ev = self.event_engine.pick_for_zone(self.zone.zone_type.name)
         if ev is None:
             # fallback: rien de spécial
@@ -491,6 +509,8 @@ class GameLoop:
                         else:
                             offer, qty = choice
                             res = mgr.buy_offer(self.player, offer, qty=qty)
+                            if offer.kind == "class_scroll" and res is not None:
+                                setattr(self.player, "class_attack_unlocked", True)
                     else:
                         res = None
                     if res is not None and self.io:
@@ -572,6 +592,27 @@ class GameLoop:
     def _rng_choice(self, seq: Sequence) -> any:
         return seq[self.rng.randrange(0, len(seq))]
 
+    def _instantiate_effect(self, raw) -> Effect | None:
+        """Normalise un 'raw effect' en instance d'Effect.
+        - Effect -> clone
+        - dict   -> make_effect(id/duration/potency)
+        - str    -> make_effect(id)
+        - list   -> non supporté ici, géré à l'appelant (itération)
+        """
+        try:
+            if isinstance(raw, Effect):
+                return self._clone_effect_instance(raw)
+            if isinstance(raw, dict):
+                rid = raw.get("id") or raw.get("name")
+                dur = int(raw.get("duration", 0))
+                pot = int(raw.get("potency", 0))
+                return make_effect(rid, dur, pot)
+            if isinstance(raw, str):
+                return make_effect(raw, 0, 0)
+        except Exception:
+            return None
+        return None
+    
     def _clone_effect_instance(self, eff: Effect) -> Effect:
         """Retourne une nouvelle instance d'effet avec la même config.
         1) On essaye via effects_bank.make_effect(effect_id ou name).

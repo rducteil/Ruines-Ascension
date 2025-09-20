@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from core.enemy import Enemy
     from core.attack import Attack
     from core.inventory import Inventory
-    from core.combat import CombatResult
+    from core.combat import CombatResult, CombatEngine
 
 class ConsoleIO:
     """Implémentation texte des callbacks I/O utilisés par GameLoop."""
@@ -43,7 +43,7 @@ class ConsoleIO:
         print(msg)
         sleep(1)
 
-    def choose_player_action(self, player: Player, enemy: Enemy, *, attacks: list[Attack], inventory: Inventory):
+    def choose_player_action(self, player: Player, enemy: Enemy, *, attacks: list[Attack], inventory: Inventory, engine: CombatEngine):
         act = True
         sleep(0.5)
         while act:
@@ -56,6 +56,12 @@ class ConsoleIO:
                 # Utiliser la liste "attacks" passée par GameLoop
                 print(f"\nChoisis une attaque (STA : {player.sp}/{player.max_sp}):")
                 for i, a in enumerate(attacks, 1):
+                    if not getattr(a, "deal_damage", True):
+                        label = f"{a.name} (utilitaire, SP {a.cost})"
+                    else:
+                        lo, hi = engine.estimate_damage(player, enemy, a)
+                        label = f"  {i}) {a.name} (≈{lo}–{hi}, SP {a.cost})"
+                    print(label)
                     nm = getattr(a, "name", "???")
                     cost = getattr(a, "cost", 0)
                     dmg  = getattr(a, "base_damage", 0)

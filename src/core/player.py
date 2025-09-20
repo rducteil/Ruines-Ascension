@@ -40,6 +40,7 @@ class Player(Entity):
         self.player_class_key = (player_class_key or "").strip().lower()
         self.player_class: PlayerClass = CLASSES_CONTENT[player_class_key]
         self.player_class.apply_to(self)
+        self.class_attack_unlocked: bool = False
 
 
     def __str__(self):

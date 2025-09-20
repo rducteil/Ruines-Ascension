@@ -75,6 +75,15 @@ class CombatEngine:
             return CombatResult(events, attacker_alive=attacker.hp > 0, defender_alive=defender.hp > 0,
                                 damage_dealt=0, was_crit=False)
 
+        # 1 bis) On vérifie si c'est une attaque sans dégats
+        if getattr(attack, "deal_damage", True) is False:
+            # pas de dégâts infligés, mais on consomme le coût et on appliquera les effets
+            events.append(CombatEvent(text=f"{attacker.name} utilise {attack.name}.", tag="no_damage_skill"))
+            # Usure éventuelle de l’arme (tu peux choisir de ne pas user pour les skills utilitaires)
+            self._wear_after_attack(attacker, ctx, events)
+            return CombatResult(events=events, attacker_alive=attacker.hp > 0, defender_alive=defender.hp > 0,
+                                damage_dealt=0, was_crit=False)
+
         # 2) Jet de variance & calcul des stats effectives (plats + %)
         base_damage = int(attack.base_damage)
         variance = int(attack.variance)
@@ -140,6 +149,17 @@ class CombatEngine:
         art = entity.equipment.artifact
         mod : StatPercentMod = art.stat_percent_mod()
         return float(getattr(mod, f"{which}_pct", 0.0))
+    
+    def estimate_damage(self, attacker, defender, attack) -> tuple[int, int]:
+        if getattr(attack, "deal_damage", True) is False:
+            return (0, 0)
+        base = int(attack.base_damage)
+        var  = int(attack.variance)
+        eff_atk = self._effective_attack(attacker)
+        eff_def = int(round(self._effective_defense(defender) * (1.0 - attack.ignore_defense_pct)))
+        lo = max(0, base - var + eff_atk - eff_def) + attack.true_damage
+        hi = max(0, base + var + eff_atk - eff_def) + attack.true_damage
+        return (lo, hi)
 
     # ---------- Critique ----------
 

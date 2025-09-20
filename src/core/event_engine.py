@@ -183,15 +183,16 @@ class EventEngine:
         extra_ctx: dict | None = None,  # ex: {"zone": zone_obj}
     ) -> EventApplyResult:
         """Applique les effets de l'option (ou on_fail si requirements non remplis)."""
+        # 1) Retourner l'option choisi
         opt = next((o for o in event.options if o.id == option_id), None)
         if opt is None:
             return EventApplyResult(events=[CombatEvent(text="Option invalide.", tag="event_error")])
 
-        # Contexte minimal pour logs/effects
+        # 2) Contexte minimal pour logs/effects
         logs: list[CombatEvent] = []
         ctx = CombatContext(attacker=player, defender=None, events=logs)
 
-        # Requirements
+        # 3) Vérifie les prérequis
         if not self._requirements_met(opt.raw.get("requires", []), player):
             # on_fail si présent
             for eff in opt.raw.get("on_fail", []):
@@ -200,14 +201,17 @@ class EventEngine:
                 logs.append(CombatEvent(text="Tu n'as pas les prérequis pour cette option.", tag="event_requires"))
             return EventApplyResult(events=logs)
 
-        # Effets
+        # 4) Appliquer les effets
         pending_combat: dict | None = None
         for eff in opt.raw.get("effects", []):
-            if eff.get("type") == "start_combat":
-                pending_combat = eff  # {"enemy_id": "..."} ou {"boss": true}
-            else:
-                self._apply_effect_payload(eff, player, wallet, ctx, extra_ctx)
+            if isinstance(eff, dict) and eff.get("type") == "start_combat":
+                # {"enemy_id": "..."} ou {"boss": true} (le GameLoop interprétera)
+                pending_combat = eff
+                continue
+            # délégation au dispatcher
+            self._apply_effect_payload(eff, player, wallet, ctx, extra_ctx)
 
+        # 5) Retourne les logs
         return EventApplyResult(events=logs, start_combat=pending_combat)
 
     def _requirements_met(self, reqs: Sequence[dict], player: Any) -> bool:
