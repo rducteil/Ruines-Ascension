@@ -1,5 +1,5 @@
 {
-  "zone": "DESERT",
+  "zone": "desert",
   "events": [
     {
       "id": "desert_mirage_01",

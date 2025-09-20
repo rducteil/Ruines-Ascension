@@ -142,12 +142,12 @@ class GameLoop:
         self.loadouts = LoadoutManager()
         self.wallet = Wallet(50)
         try:
-            class_key = getattr(self.player, "player_class_key", "guerrier")
+            class_key = (getattr(self.player, "player_class_key", "guerrier") or "guerrier").strip().lower()
             self.loadouts.set(self.player, default_loadout_for_class(class_key))
         except Exception:
             pass
         self.event_engine = EventEngine(
-            data_dir="data/events",
+            data_dir="data",
             lang="fr",
             seed=seed,
             effects=self.effects,
@@ -254,7 +254,12 @@ class GameLoop:
         return Section(kind=kind, enemy_factory=None)
 
     def _enter_section(self, section: Section) -> None:
-        """Exécute la section selon son type. Les parties non-combat restent TODO."""
+        """Exécute la section selon son type"""
+        if self.io:
+            if section.kind == SectionType.BOSS:
+                self.io.present_text("=== ⚠️ BOSS ⚠️ — Section 5/5 ===")
+            else:
+                self.io.present_text(f"--- Section {self.zone.explored + 1}/5 — {section.kind.name.title()} ---")
         if section.kind == SectionType.COMBAT:
             self._run_battle(section.enemy_factory() if section.enemy_factory else self._spawn_enemy(self.zone))
         elif section.kind == SectionType.BOSS:
@@ -272,6 +277,7 @@ class GameLoop:
         """Boucle d'un combat jusqu'au K.O. (UI via GameIO)."""
         if self.io:
             self.io.on_battle_start(self.player, enemy)
+            self.io.show_status(self.player, enemy)
 
         while self.player.hp > 0 and enemy.hp > 0 and self.running:
             # --- Tour du joueur ---
@@ -365,7 +371,10 @@ class GameLoop:
         events: list[CombatEvent] = []
         ctx = CombatContext(attacker=self.player, defender=None, events=events)  # defender None: action utilitaire
         item_events = self.player_inventory.use_consumable(item_id, user=self.player, ctx=ctx)
-        events.append(item_events)
+        if isinstance(item_events, list):
+            events.extend(item_events)
+        elif item_events:
+            events.append(item_events)
         # Utiliser un objet consomme le tour, n'inflige pas de dégâts
         return CombatResult(events=events, attacker_alive=True, defender_alive=True, damage_dealt=0, was_crit=False)
 
@@ -461,12 +470,17 @@ class GameLoop:
         if self.io and hasattr(self.io, "choose_supply_action"):
             running = True
             while running:
+                res = None
                 action = self.io.choose_supply_action(self.player, wallet=self.wallet, offers=offers)
                 if action == "REST":
                     res = mgr.do_rest(self.player, hp_pct=REST_HP_PCT, sp_pct=REST_SP_PCT)
+                    if res is not None and self.io:
+                        self.io.present_events(CombatResult(events=res.events, attacker_alive=True, defender_alive=True, damage_dealt=0, was_crit=False))
                     break
                 elif action == "REPAIR":
                     res = mgr.repair_all_you_can_afford(self.player, price_per_point=REPAIR_COST_PER_POINT)
+                    if res is not None and self.io:
+                        self.io.present_events(CombatResult(events=res.events, attacker_alive=True, defender_alive=True, damage_dealt=0, was_crit=False))
                     break
                 elif action == "SHOP":
                     # laisser l’IO sélectionner une offre + quantité
@@ -479,12 +493,15 @@ class GameLoop:
                             res = mgr.buy_offer(self.player, offer, qty=qty)
                     else:
                         res = None
+                    if res is not None and self.io:
+                        self.io.present_events(CombatResult(events=res.events, attacker_alive=True, defender_alive=True, damage_dealt=0, was_crit=False))
                     break
                 elif action == "SAVE":
                     ok = save_to_file(self, "save_slot_1.json")
                     if self.io:
                         msg = "Sauvegarde réussie." if ok else "Échec de sauvegarde."
                         self.io.present_text(msg)
+                    break
                 elif action == "LOAD":
                     loaded = load_from_file("save_slot_1.json", io=self.io)
                     if loaded:
@@ -521,7 +538,9 @@ class GameLoop:
                 enemy_id = self._weighted_pick(pairs)
                 bp = self.enemy_blueprints.get(enemy_id)
                 if bp:
-                    return bp.build(level=zone.level)
+                    e = bp.build(level=zone.level)
+                    setattr(e, "is_boss", is_boss)
+                    return e
 
         # 2) fallback: ton ancienne logique
         return self._spawn_enemy_fallback(zone, is_boss)

@@ -4,9 +4,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, TypeAlias, Literal
 
+from core.combat import CombatEvent, CombatContext
 if TYPE_CHECKING:
     from core.entity import Entity
-    from core.combat import CombatEvent, CombatContext
 
 
 Slot: TypeAlias = Literal["recovery", "boost", "equipment"]
@@ -42,8 +42,8 @@ class Consumable(Item):
         if self.kind not in VALID_SLOT:
             raise ValueError(f"kind invalide {self.kind}")  
         elif self.kind == "recovery":
-            pass
+            return [CombatEvent(text="Vous vous rétablissez", tag="recovery_use", data={"item": self.item_id})]
         elif self.kind == "boost":
-            pass
+            return [CombatEvent(text="Vous vous boostez", tag="boost_use", data={"item": self.item_id})]
         elif self.kind == "equipment":
-            pass
+            return [CombatEvent(text="Vous munissez d'equipement", tag="equip_use", data={"item": self.item_id})]

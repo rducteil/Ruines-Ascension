@@ -1,7 +1,7 @@
 {
-  "guerrier":  { "primary": "FRAPPER",     "skill": "BRISE_GARDE", "utility": "CHARGE" },
-  "mystique":  { "primary": "ONDE",        "skill": "SIPHON",      "utility": "CONCENTRATION" },
-  "vagabond":  { "primary": "COUP_RAPIDE", "skill": "LAME_TOXIQUE","utility": "PARI" },
-  "arpenteur": { "primary": "PERCEE",      "skill": "FENTE",       "utility": "MARQUE" },
-  "sentinelle":{ "primary": "HEURT",       "skill": "ECRASEMENT",  "utility": "GARDE" }
+  "guerrier":  { "primary": "frapper",     "skill": "brise_garde", "utility": "charge" },
+  "mystique":  { "primary": "onde",        "skill": "siphon",      "utility": "concentration" },
+  "vagabond":  { "primary": "coup_rapide", "skill": "lame_toxique","utility": "pari" },
+  "arpenteur": { "primary": "percee",      "skill": "fente",       "utility": "marque" },
+  "sentinelle":{ "primary": "heurt",       "skill": "ecrasement",  "utility": "garde" }
 }

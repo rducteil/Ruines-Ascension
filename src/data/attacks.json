@@ -1,31 +1,31 @@
 {
-  "FRAPPER":           { "name": "Frapper",           "base_damage": 6,  "variance": 2, "cost": 3 },
-  "BRISE_GARDE":       { "name": "Brise-garde",       "base_damage": 12, "variance": 3, "cost": 6, "ignore_defense_pct": 0.25 },
+  "frapper":           { "name": "Frapper",           "base_damage": 6,  "variance": 2, "cost": 3 },
+  "brise_garde":       { "name": "Brise-garde",       "base_damage": 12, "variance": 3, "cost": 6, "ignore_defense_pct": 0.25 },
 
-  "CHARGE":            { "name": "Charge",            "base_damage": 0,  "cost": 4, "target": "self",
+  "charge":            { "name": "Charge",            "base_damage": 0,  "cost": 4, "target": "self",
                          "effects": [ { "effect_id": "blessing_atk", "duration": 1, "potency": 4 } ] },
 
-  "ONDE":              { "name": "Onde mentale",      "base_damage": 5,  "variance": 3, "cost": 2 },
-  "CONCENTRATION":     { "name": "Concentration",     "base_damage": 0,  "cost": 5, "target": "self",
+  "onde":              { "name": "Onde mentale",      "base_damage": 5,  "variance": 3, "cost": 2 },
+  "concentration":     { "name": "Concentration",     "base_damage": 0,  "cost": 5, "target": "self",
                          "effects": [ { "effect_id": "blessing_atk", "duration": 1, "potency": 5 } ] },
-  "SIPHON":            { "name": "Siphon vital",      "base_damage": 3,  "variance": 1, "cost": 4, "true_damage": 4 },
+  "siphon":            { "name": "Siphon vital",      "base_damage": 3,  "variance": 1, "cost": 4, "true_damage": 4 },
 
-  "COUP_RAPIDE":       { "name": "Coup rapide",       "base_damage": 5,  "variance": 3, "cost": 2 },
-  "LAME_TOXIQUE":      { "name": "Lame toxique",      "base_damage": 4,  "variance": 1, "cost": 3,
+  "coup_rapide":       { "name": "Coup rapide",       "base_damage": 5,  "variance": 3, "cost": 2 },
+  "lame_toxique":      { "name": "Lame toxique",      "base_damage": 4,  "variance": 1, "cost": 3,
                          "effects": [ { "effect_id": "poison", "duration": 2, "potency": 3 } ] },
-  "PARI":              { "name": "Pari",              "base_damage": 0,  "cost": 4, "target": "self",
+  "pari":              { "name": "Pari",              "base_damage": 0,  "cost": 4, "target": "self",
                          "effects": [
                            { "effect_id": "luck_up", "duration": 2, "potency": 5 },
                            { "effect_id": "ward_def", "duration": 2, "potency": -3 }
                          ] },
 
-  "PERCEE":            { "name": "Percée",            "base_damage": 6,  "variance": 2, "cost": 3 },
-  "MARQUE":            { "name": "Marque",            "base_damage": 0,  "cost": 3, "target": "enemy",
+  "percee":            { "name": "Percée",            "base_damage": 6,  "variance": 2, "cost": 3 },
+  "marque":            { "name": "Marque",            "base_damage": 0,  "cost": 3, "target": "enemy",
                          "effects": [ { "effect_id": "ward_def", "duration": 2, "potency": -4 } ] },
-  "FENTE":             { "name": "Fente oblique",     "base_damage": 8,  "variance": 1, "cost": 5 },
+  "fente":             { "name": "Fente oblique",     "base_damage": 8,  "variance": 1, "cost": 5 },
 
-  "HEURT":             { "name": "Heurt de bouclier", "base_damage": 5,  "variance": 1, "cost": 2 },
-  "GARDE":             { "name": "Garde",             "base_damage": 0,  "cost": 4, "target": "self",
+  "heurt":             { "name": "Heurt de bouclier", "base_damage": 5,  "variance": 1, "cost": 2 },
+  "garde":             { "name": "Garde",             "base_damage": 0,  "cost": 4, "target": "self",
                          "effects": [ { "effect_id": "ward_def", "duration": 1, "potency": 6 } ] },
-  "ECRASEMENT":        { "name": "Écrasement",        "base_damage": 11, "variance": 1, "cost": 6 }
+  "ecrasement":        { "name": "Écrasement",        "base_damage": 11, "variance": 1, "cost": 6 }
 }

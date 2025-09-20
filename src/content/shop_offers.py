@@ -31,6 +31,7 @@ def price_for_level(base: int, level: int) -> int:
 
 def build_offers(*, zone_level: int, player_class_key: str) -> list[ShopOffer]:
     offers: list[ShopOffer] = []
+    class_key = (player_class_key or "").strip().lower()
     for row in SHOP_ITEMS:
         offers.append(ShopOffer(kind="item",
                                 name=row["name"],
@@ -40,7 +41,7 @@ def build_offers(*, zone_level: int, player_class_key: str) -> list[ShopOffer]:
     offers.append(ShopOffer(kind="class_scroll",
                             name="Parchemin de maîtrise",
                             price=price_for_level(CLASS_SCROLL_BASE_PRICE, zone_level),
-                            class_key=player_class_key))
+                            class_key=class_key))
     return offers
 
 # Paramètres “supply” par défaut

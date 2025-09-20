@@ -136,36 +136,40 @@ def _attack_from_dict(d: dict) -> Attack:
     )
 
 def load_attacks() -> dict[str, Attack]:
-    """Charge attacks.json et retourne un dict {ATTACK_KEY: Attack}."""
+    """Charge attacks.json et retourne un dict {attack_id_lower: Attack}."""
     raw = _read_json_first("attacks.json")
     res: dict[str, Attack] = {}
     if isinstance(raw, dict):
         for key, d in raw.items():
-            res[key] = _attack_from_dict(d)
+            k = str(key).strip().lower()
+            res[k] = _attack_from_dict(d)
     return res
 
+# core/data_loader.py
 def load_loadouts(attacks_registry: dict[str, Attack]) -> dict[str, Loadout]:
-    """Charge loadouts.json et construit {class_key: Loadout} à partir des clés d'attaque."""
+    """Charge loadouts.json et construit {class_key_lower: Loadout}."""
     raw = _read_json_first("loadouts.json")
-    res: dict[str, Loadout] = {}
+    out: dict[str, Loadout] = {}
     if not isinstance(raw, dict):
-        return res
-    
-    def _resolve(key):
-    # autoriser None / 0 / "" / "none" comme slot vide
-        if key in (None, "", 0, "none", "NONE", "null", "Null"):
+        return out
+
+    def _slot(val):
+        if val in (None, "", 0, "0", "none", "null"):
             return None
-        return deepcopy(attacks_registry[key])
+        return deepcopy(attacks_registry[str(val).strip().lower()])
+
     for class_key, row in raw.items():
+        ck = str(class_key).strip().lower()
         try:
-            p = _resolve(attacks_registry[row["primary"]])
-            s = _resolve(attacks_registry[row["skill"]])
-            u = _resolve(attacks_registry[row["utility"]])
-            res[class_key] = Loadout(primary=p, skill=s, utility=u)
-        except Exception:
-            # clé manquante → on saute
+            p = _slot(row.get("primary"))
+            s = _slot(row.get("skill"))
+            u = _slot(row.get("utility"))
+            out[ck] = Loadout(primary=p, skill=s, utility=u)
+        except KeyError:
+            # au besoin: logger un warning ici
             continue
-    return res
+    return out
+
 
 # ---------- Items (consommables) & Shop ----------
 

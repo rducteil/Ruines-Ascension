@@ -74,7 +74,7 @@ class EventEngine:
 
     def __init__(
         self,
-        data_dir: str = "data/events",
+        data_dir: str = "data",
         *,
         lang: str = "fr",
         seed: int | None = None,
@@ -102,7 +102,7 @@ class EventEngine:
 
                     # Format A: fichier zone { "zone": "RUINS", "events": [ {...}, ... ] }
                     if isinstance(raw, dict) and "events" in raw and isinstance(raw["events"], list):
-                        zone_name = str(raw.get("zone", "")).upper()
+                        zone_name = str(raw.get("zone", "")).strip().lower()
                         for ev_raw in raw["events"]:
                             ev_raw = dict(ev_raw)
                             # si l'event ne précise pas zone_types, on l'injecte depuis le fichier
@@ -136,7 +136,7 @@ class EventEngine:
         for o in raw.get("options", []):
             label = self._loc(o.get("label"), self.lang, default=o.get("id", "?"))
             opts.append(EventOption(id=o.get("id", "?"), label=label, raw=o))
-        zone_types = list(raw.get("zone_types", []))
+        zone_types = [str(z).strip().lower() for z in raw.get("zone_types", [])]
         weight = int(raw.get("weight", 1))
         return LoadedEvent(
             id=raw.get("id", "event"),
@@ -158,7 +158,8 @@ class EventEngine:
 
     def pick_for_zone(self, zone_type: str) -> LoadedEvent | None:
         """Tire un évènement compatible avec le biome, selon weight."""
-        pool = [e for e in self._events if (not e.zone_types or zone_type in e.zone_types)]
+        z = str(zone_type).strip().lower() 
+        pool = [e for e in self._events if (not e.zone_types or z in e.zone_types)]
         if not pool:
             return None
         total_w = sum(e.weight for e in pool)

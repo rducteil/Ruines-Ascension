@@ -34,6 +34,7 @@ from core.supply import Wallet
 from core.effects import Effect
 from content.effects_bank import make_effect
 from core.loadout import Loadout, LoadoutManager
+from core.equipment import Weapon, Armor, Artifact, Equipment
 # from game.game_loop import GameLoop
 
 # Équipements concrets
@@ -43,7 +44,6 @@ from content.items import ITEM_FACTORY as ITEM_FACTORY_CODE
 
 if TYPE_CHECKING:
     from game.game_loop import GameLoop
-    from core.equipment import Weapon, Armor, Artifact, Equipment
     from core.effect_manager import EffectManager
 
 SAVE_VERSION = 1
@@ -108,13 +108,16 @@ def _equipment_slot_to_dict(slot_obj: Equipment) -> dict | None:
         }
     }
     if isinstance(slot_obj, Weapon):
-        base.update({"kind": "weapon", "bonus_attack": slot_obj.bonus_attack})
+        bonus = getattr(slot_obj, "bonus_attack", None)
+        base.update({
+            "kind": "weapon",
+            **({"bonus_attack": _attack_to_dict(bonus)} if bonus else {})
+            })
     elif isinstance(slot_obj, Armor):
-        base.update({"kind": "armor", "bonus_defense": slot_obj.bonus_defense})
+        base.update({"kind": "armor", "bonus_defense": getattr(slot_obj, "bonus_defense", 0)})
     elif isinstance(slot_obj, Artifact):
-        # artefacts: % ATK/DEF
         spm = slot_obj.stat_percent_mod()
-        base.update({"kind": "artifact", "atk_pct": spm.attack_pct, "def_pct": spm.defense_pct})
+        base.update({"kind": "artifact", "atk_pct": spm.attack_pct, "def_pct": spm.defense_pct, "lck_pct": spm.luck_pct})
     else:
         base.update({"kind": "unknown"})
     return base
@@ -127,7 +130,9 @@ def _equipment_slot_from_dict(d: dict | None):
     name = d.get("name", "???")
     dur = d.get("durability", {"current": 1, "maximum": 1})
     if k == "weapon":
-        obj = Weapon(name=name, durability_max=int(dur.get("maximum", 1)), bonus_attack=int(d.get("bonus_attack", 0)))
+        bonus_d = d.get("bonus_attack")
+        bonus = _attack_from_dict(bonus_d) if isinstance(bonus_d, dict) else None
+        obj = Weapon(name=name, durability_max=int(dur.get("maximum", 1)), bonus_attack=bonus)
     elif k == "armor":
         obj = Armor(name=name, durability_max=int(dur.get("maximum", 1)), bonus_defense=int(d.get("bonus_defense", 0)))
     elif k == "artifact":
@@ -200,10 +205,11 @@ def game_to_dict(loop: GameLoop) -> dict:
     }
 
     # Équipements (slots)
+    eq = getattr(loop.player, "equipment", None)
     equip = {
-        "weapon": _equipment_slot_to_dict(player.weapon),
-        "armor": _equipment_slot_to_dict(player.armor),
-        "artifact": _equipment_slot_to_dict(player.artifact),
+        "weapon": _equipment_slot_to_dict(getattr(eq, "weapon", None)),
+        "armor": _equipment_slot_to_dict(getattr(eq, "armor", None)),
+        "artifact": _equipment_slot_to_dict(getattr(eq, "artifact", None)),
     }
 
     # Inventaire (items stackables)

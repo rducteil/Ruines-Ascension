@@ -22,8 +22,10 @@ class ConsoleIO:
     # ---------- Combats ----------
 
     def on_battle_start(self, player: Player, enemy: Enemy) -> None:
-        print(f"\n=== COMBAT: {player.name} vs {enemy.name} ===\n")
-        sleep(0.1)
+        is_boss = getattr(enemy, "is_boss", False)
+        print(f"\n=== COMBAT: {player.name} vs {enemy.name} ===")
+        if is_boss:
+            print("        ⚔️  B O S S  ⚔️\n\n")
         print(enemy)
         sleep(1)
 
@@ -34,7 +36,7 @@ class ConsoleIO:
 
     def show_status(self, player: Player, enemy: Enemy) -> None:
         print(f"   PV {player.name}: {player.hp}/{player.max_hp}  |  PV {enemy.name}: {enemy.hp}/{enemy.max_hp}")
-        print(f"   SP {player.name}: {player.sp}/{player.max_sp}")
+        print(f"   SP {player.name}: {player.sp}/{player.max_sp}  |")
 
     def on_battle_end(self, player: Player, enemy: Enemy, victory: bool) -> None:
         msg = f"Victoire ! {enemy.name} est vaincu." if victory else f"Défaite… {player.name} tombe au combat."
@@ -43,7 +45,6 @@ class ConsoleIO:
 
     def choose_player_action(self, player: Player, enemy: Enemy, *, attacks: list[Attack], inventory: Inventory):
         act = True
-        print(player)
         sleep(0.5)
         while act:
             print("\nChoisis une action :")
@@ -53,7 +54,7 @@ class ConsoleIO:
 
             if c == 0:
                 # Utiliser la liste "attacks" passée par GameLoop
-                print("\nChoisis une attaque :")
+                print(f"\nChoisis une attaque (STA : {player.sp}/{player.max_sp}):")
                 for i, a in enumerate(attacks, 1):
                     nm = getattr(a, "name", "???")
                     cost = getattr(a, "cost", 0)
@@ -98,6 +99,7 @@ class ConsoleIO:
         return options[idx]
 
     def choose_supply_action(self, player: Player, *, wallet: Wallet, offers: ShopOffer):
+        print(f"HP : {player.hp}/{player.max_hp}\n", f"STA : {player.sp}/{player.max_sp}\n")
         print(f"\n-- Ravitaillement -- Or: {wallet.gold}")
         print("  1) Se reposer")
         print("  2) Réparer (tout ce qu’on peut)")
