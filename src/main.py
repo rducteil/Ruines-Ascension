@@ -52,8 +52,9 @@ def _resolve_loadout_for(player: Player):
 def main():
     io = ConsoleIO()
     class_key = _choose_class_key(CONTENT_CLASSES)
+    name = input("Choisi ton nom : ")
     p = Player(
-        name="Moi",
+        name=name,
         player_class_key=class_key,
         base_stats=Stats(attack=10, defense=10, luck=5),
         base_hp_max=50,

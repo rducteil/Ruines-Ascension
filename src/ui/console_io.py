@@ -66,7 +66,6 @@ class ConsoleIO:
                     cost = getattr(a, "cost", 0)
                     dmg  = getattr(a, "base_damage", 0)
                     var  = getattr(a, "variance", 0)
-                    print(f"  {i}) {nm} (Dmg {dmg}±{var}, SP {cost})")
                 idx = self._ask_index(len(attacks))
                 sleep(0.5)
                 return ("attack", attacks[idx])
@@ -75,6 +74,8 @@ class ConsoleIO:
                 items = [row for row in inventory.list_summary() if row["kind"] == "item"]
                 if not items:
                     print("   Aucun objet utilisable")
+                    input("   (Entrée pour revenir)")
+                    continue
                 print("Objets :")
                 for i, it in enumerate(items, 1):
                     print(f"  {i}) {it['name']} x{it['qty']}")

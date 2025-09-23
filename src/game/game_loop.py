@@ -45,7 +45,7 @@ class GameIO(Protocol):
     def present_events(self, result: CombatResult) -> None: ...
     def show_status(self, player: Player, enemy: Enemy) -> None: ...
     def choose_player_attack(self, player: Player, enemy: Enemy) -> Attack: ...
-    def choose_player_action(self, player: Player, enemy:  Enemy, *, attacks: Sequence[Attack], inventory: Inventory) -> tuple[str, Any]: ...
+    def choose_player_action(self, player: Player, enemy:  Enemy, *, attacks: Sequence[Attack], inventory: Inventory, engine: CombatEngine) -> tuple[str, Any]: ...
     # Zones / Sections
     def on_zone_start(self, zone: Zone) -> None: ...
     def on_zone_cleared(self, zone: Zone) -> None: ...
@@ -164,7 +164,6 @@ class GameLoop:
     # -------------
     def run(self) -> None:
         """Boucle principale. S'arrête si le joueur meurt ou si on set running=False."""
-        self.io.present_text(f"[DEBUG] {len(self.event_engine._events)} events chargés")
         while self.running and self.player.hp > 0:
             # Début de zone
             if self.io:
@@ -282,7 +281,7 @@ class GameLoop:
 
         while self.player.hp > 0 and enemy.hp > 0 and self.running:
             # --- Tour du joueur ---
-            act_kind, payload = self._choose_player_action(enemy, self.engine)
+            act_kind, payload = self._choose_player_action(enemy)
             if act_kind == "item":
                 res_p = self._use_item_in_combat(payload) # payload = item_id
             elif act_kind == "attack":
@@ -347,7 +346,7 @@ class GameLoop:
         """Renvoie ('attack', Attack) ou ('item', item_id)."""
         atks = self._gather_player_attacks()
         if self.io:
-            res = self.io.choose_player_action(self.player, enemy, attacks=atks, inventory=self.player_inventory)
+            res = self.io.choose_player_action(self.player, enemy, attacks=atks, inventory=self.player_inventory, engine=self.engine)
             # tolérance: si l’IO renvoie un Attack tout seul
             if not isinstance(res, tuple):
                 return ("attack", res)

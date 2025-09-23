@@ -76,7 +76,7 @@ class CombatEngine:
                                 damage_dealt=0, was_crit=False)
 
         # 1 bis) On vérifie si c'est une attaque sans dégats
-        if getattr(attack, "deal_damage", True) is False:
+        if getattr(attack, "deals_damage", True) is False:
             # pas de dégâts infligés, mais on consomme le coût et on appliquera les effets
             events.append(CombatEvent(text=f"{attacker.name} utilise {attack.name}.", tag="no_damage_skill"))
             # Usure éventuelle de l’arme (tu peux choisir de ne pas user pour les skills utilitaires)
@@ -151,7 +151,7 @@ class CombatEngine:
         return float(getattr(mod, f"{which}_pct", 0.0))
     
     def estimate_damage(self, attacker, defender, attack) -> tuple[int, int]:
-        if getattr(attack, "deal_damage", True) is False:
+        if getattr(attack, "deals_damage", True) is False:
             return (0, 0)
         base = int(attack.base_damage)
         var  = int(attack.variance)

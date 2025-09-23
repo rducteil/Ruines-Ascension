@@ -91,40 +91,69 @@ class EventEngine:
     # --------- Chargement ---------
 
     def _load_from_dir(self, data_dir: str) -> None:
-        bases = [Path(data_dir)] if data_dir else default_data_dirs()
-        for base in bases:
-            folder = base / "events"
-            if not folder.is_dir():
-                continue
-            for path in folder.glob("*.json"):
-                try:
-                    raw = json.loads(path.read_text(encoding="utf-8"))
+        """
+        Cherche un dossier 'events' sous plusieurs bases possibles, puis charge tous les JSON.
+        """
+        here = Path(__file__).resolve()
 
-                    # Format A: fichier zone { "zone": "RUINS", "events": [ {...}, ... ] }
-                    if isinstance(raw, dict) and "events" in raw and isinstance(raw["events"], list):
-                        zone_name = str(raw.get("zone", "")).strip().lower()
-                        for ev_raw in raw["events"]:
-                            ev_raw = dict(ev_raw)
-                            # si l'event ne précise pas zone_types, on l'injecte depuis le fichier
-                            if "zone_types" not in ev_raw and zone_name:
-                                ev_raw["zone_types"] = [zone_name]
-                            ev = self._parse_event(ev_raw)
-                            self._events.append(ev)
-                        continue
+        # Candidats possibles selon ta structure:
+        # - data_dir relatif au CWD (ex: lancer depuis la racine)
+        # - data_dir relatif à src/ (là où se trouve event_engine.py)
+        # - data_dir relatif à la racine du repo (src/..)
+        candidates = []
+        if data_dir:
+            candidates += [
+                Path(data_dir),                         # .\data
+                here.parent / data_dir,                # src/core + data -> src/core/data (souvent vide)
+                here.parent.parent / data_dir,         # src/data           ✅
+                here.parent.parent.parent / data_dir,  # racine/data        (si tu déplaces data)
+            ]
+        else:
+            # fallback si aucun data_dir n'est passé : utilise tes chemins par défaut
+            candidates = default_data_dirs()
 
-                    # Format B: ancien format (1 évènement par fichier)
-                    if isinstance(raw, list):
-                        # tolère aussi un "fichier = liste d'events"
-                        for ev_raw in raw:
-                            ev = self._parse_event(ev_raw)
-                            self._events.append(ev)
-                    else:
-                        ev = self._parse_event(raw)
+        base = None
+        for c in candidates:
+            if (c / "events").is_dir():
+                base = c
+                break
+        if base is None:
+            # rien trouvé, on quitte proprement
+            return
+
+        folder = base / "events"
+        # (optionnel) debug:
+        # print(f"[DEBUG] EventEngine: folder={folder}")
+
+        for path in folder.glob("*.json"):
+            try:
+                raw = json.loads(path.read_text(encoding="utf-8"))
+
+                # Format A: pack par zone { "zone": "...", "events": [...] }
+                if isinstance(raw, dict) and "events" in raw and isinstance(raw["events"], list):
+                    zone_name = str(raw.get("zone", "")).strip().lower()
+                    for ev_raw in raw["events"]:
+                        ev_raw = dict(ev_raw)
+                        if "zone_types" not in ev_raw and zone_name:
+                            ev_raw["zone_types"] = [zone_name]
+                        # ceinture & bretelles : normaliser si déjà présent
+                        if "zone_types" in ev_raw:
+                            ev_raw["zone_types"] = [str(z).strip().lower() for z in ev_raw["zone_types"]]
+                        ev = self._parse_event(ev_raw)
                         self._events.append(ev)
-
-                except Exception:
                     continue
 
+                # Format B: liste d'events dans le fichier
+                if isinstance(raw, list):
+                    for ev_raw in raw:
+                        ev = self._parse_event(ev_raw)
+                        self._events.append(ev)
+                else:
+                    ev = self._parse_event(raw)
+                    self._events.append(ev)
+
+            except Exception:
+                continue
 
     def register_event(self, raw: dict) -> None:
         """Permet d'injecter un évènement (utile en tests)."""

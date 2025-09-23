@@ -122,7 +122,7 @@ def _attack_from_dict(d: dict) -> Attack:
     d["effects"] = effs
 
     # champs connus de Attack (on laisse Python ignorer ceux qu'il ne connaît pas si dataclass strict=False)
-    return Attack(
+    atk = Attack(
         name=d.get("name", "Attaque"),
         base_damage=int(d.get("base_damage", 0)),
         variance=int(d.get("variance", 0)),
@@ -134,6 +134,15 @@ def _attack_from_dict(d: dict) -> Attack:
         # facultatif si tu as ajouté 'target' à Attack
         **({ "target": d["target"] } if "target" in d else {})
     )
+
+    dd = d.get("deals_damage", True)
+    try:
+        dd = bool(dd)
+    except Exception:
+        dd = True
+    setattr(atk, "deals_damage", dd)
+
+    return atk
 
 def load_attacks() -> dict[str, Attack]:
     """Charge attacks.json et retourne un dict {attack_id_lower: Attack}."""

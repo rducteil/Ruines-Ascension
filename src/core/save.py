@@ -23,15 +23,22 @@ Remarques:
 
 import json
 from typing import TYPE_CHECKING
+import inspect
 
 # ——— Imports moteur ———
+from core import effects
 from core.player import Player
 from core.attack import Attack
 from core.resource import Resource
 from content.player_classes import CLASSES as CLASS_REG
 from core.inventory import Inventory
 from core.supply import Wallet
-from core.effects import Effect
+from core.effects import Effect, PoisonEffect, AttackBuffEffect, DefenseBuffEffect, LuckBuffEffect
+_EFFECT_REGISTRY = {
+    name: cls
+    for name, cls in inspect.getmembers(effects, inspect.isclass)
+    if issubclass(cls, Effect)
+}
 from content.effects_bank import make_effect
 from core.loadout import Loadout, LoadoutManager
 from core.equipment import Weapon, Armor, Artifact, Equipment
@@ -40,7 +47,10 @@ from core.equipment import Weapon, Armor, Artifact, Equipment
 # Équipements concrets
 
 # Factories d'items (consommables)
-from content.items import ITEM_FACTORY as ITEM_FACTORY_CODE
+try:
+    from content.items import ITEM_FACTORY as ITEM_FACTORY_CODE
+except:
+    ITEM_FACTORY_CODE = {}
 
 if TYPE_CHECKING:
     from game.game_loop import GameLoop
@@ -108,11 +118,10 @@ def _equipment_slot_to_dict(slot_obj: Equipment) -> dict | None:
         }
     }
     if isinstance(slot_obj, Weapon):
-        bonus = getattr(slot_obj, "bonus_attack", None)
         base.update({
             "kind": "weapon",
-            **({"bonus_attack": _attack_to_dict(bonus)} if bonus else {})
-            })
+            "bonus_attack": int(getattr(slot_obj, "bonus_attack", 0)),
+        })
     elif isinstance(slot_obj, Armor):
         base.update({"kind": "armor", "bonus_defense": getattr(slot_obj, "bonus_defense", 0)})
     elif isinstance(slot_obj, Artifact):
@@ -130,8 +139,7 @@ def _equipment_slot_from_dict(d: dict | None):
     name = d.get("name", "???")
     dur = d.get("durability", {"current": 1, "maximum": 1})
     if k == "weapon":
-        bonus_d = d.get("bonus_attack")
-        bonus = _attack_from_dict(bonus_d) if isinstance(bonus_d, dict) else None
+        bonus = int(d.get("bonus_attack", 0))
         obj = Weapon(name=name, durability_max=int(dur.get("maximum", 1)), bonus_attack=bonus)
     elif k == "armor":
         obj = Armor(name=name, durability_max=int(dur.get("maximum", 1)), bonus_defense=int(d.get("bonus_defense", 0)))
@@ -338,7 +346,7 @@ def dict_to_game(data: dict, *, io=None):
 
     # Effets actifs (si EffectManager présent)
     if getattr(loop, "effects", None):
-        loop.effects.restore(loop.player, data.get("effects", []), registry={}, ctx=None)
+        loop.effects.restore(loop.player, data.get("effects", []), registry=_EFFECT_REGISTRY, ctx=None)
 
     # RNG (facultatif)
     try:
