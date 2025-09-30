@@ -28,7 +28,7 @@ from core.supply import SupplyManager
 from content.shop_offers import build_offers, REST_HP_PCT, REST_SP_PCT, REPAIR_COST_PER_POINT, ShopOffer
 from core.event_engine import EventEngine
 from core.save import save_to_file, load_from_file
-from core.data_loader import load_enemy_blueprints, load_encounter_tables, load_equipment_banks, load_equipment_zone_index, load_items, load_attacks
+from core.data_loader import load_enemy_blueprints, load_encounter_tables, load_equipment_banks, load_equipment_zone_index, load_items, load_attacks, EnemyBlueprint
 from content.effects_bank import make_effect
 
 
@@ -154,7 +154,7 @@ class GameLoop:
             enemy_factory=None
             )
         self.engine = CombatEngine(seed=seed)  # CombatEngine gère crits, usure, etc.
-        self.attacks_reg = load_attacks
+        self.attacks_reg = load_attacks()
         self.enemy_blueprints = load_enemy_blueprints(self.attacks_reg)
         self.encounter_tables = load_encounter_tables()
         self.weapon_bank, self.armor_bank, self.artifact_bank = load_equipment_banks()
@@ -324,6 +324,7 @@ class GameLoop:
         if victory:
             g = self._gold_reward_for(enemy, is_boss=getattr(enemy, "is_boss", False))
             self._grant_gold(g)
+
             drops = self._roll_item_drops(enemy, is_boss=getattr(enemy, "is_boss", False))
             if drops:
                 self._grant_items(drops)
@@ -450,7 +451,6 @@ class GameLoop:
     def _handle_event_section(self) -> None:
         """Présente un évènement data-driven et applique le choix."""
         # 1) choisir un événement compatible avec la zone courante
-        self.io.present_text(f"[DEBUG] zone={self.zone.zone_type.name}")
         ev = self.event_engine.pick_for_zone(self.zone.zone_type.name)
         if ev is None:
             # fallback: rien de spécial
@@ -680,7 +680,6 @@ class GameLoop:
     def _roll_item_drops(self, enemy: Enemy, is_boss: bool) -> list[tuple[str, int]]:
         """
         Retourne une liste de (item_id, qty) à drop.
-        Priorité:
         1) Si le blueprint de l'ennemi fournit des drops → on respecte.
         2) Sinon fallback simple: petites/moyennes/grandes potions avec proba selon zone.level.
         """
@@ -688,10 +687,8 @@ class GameLoop:
 
         # 1) Drops définis sur le blueprint de l'ennemi (optionnel)
         eid = getattr(enemy, "enemy_id", None)
-        bp = self.enemy_blueprints.get(eid) if eid and hasattr(self, "enemy_blueprints") else None
-        if bp and hasattr(bp, "drops") and isinstance(bp.drops, dict):
-            # format attendu (optionnel) :
-            # bp.drops = {"items":[{"id":"potion_hp_s","w":3,"qty":[1,2]}, ...]}
+        bp: EnemyBlueprint = self.enemy_blueprints.get(eid) if eid and hasattr(self, "enemy_blueprints") else None
+        if bp and isinstance(bp.drops, dict):
             items = list(getattr(bp.drops, "get", lambda k, d=[]: d)("items", [])) if isinstance(bp.drops, dict) else []
             total_w = sum(int(r.get("w", 1)) for r in items) or 0
             if total_w > 0:
@@ -764,10 +761,12 @@ class GameLoop:
         """Ajoute les items droppés à l'inventaire + feedback IO."""
         if not drops: 
             return
+        factories = (self.item_factories or {})
         added: list[str] = []
         inv = self.player_inventory
+
         for iid, qty in drops:
-                fac = (self.item_factories or {}).get(iid)
+                fac = factories.get(iid)
                 if not fac:
                     continue
                 try:
@@ -775,7 +774,6 @@ class GameLoop:
                     inv.add_item(inst, qty)
                     added.append(f"{qty}× {getattr(inst, 'name', iid)}")
                 except Exception:
-                    # On ignore un échec d’ajout ponctuel (capacité pleine, etc.)
                     pass
         if added and self.io:
             self.io.present_text("Butin: " + ", ".join(added) + ".")

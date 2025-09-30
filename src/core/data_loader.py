@@ -218,11 +218,10 @@ class DataConsumable(Consumable):
             except Exception:
                 evs.append(CombatEvent(text="L’objet crépite… sans effet notable.", tag="use_unknown"))
         else:
-            from core.combat import CombatEvent
             evs.append(CombatEvent(text="L’objet ne semble rien faire.", tag="use_none"))
         return evs
 
-def load_items() -> dict[str, DataConsumable]:
+def load_items() -> dict[str, Callable[[], DataConsumable]]:
     """Charge items.json et retourne un factory dict {item_id: callable()->Consumable}."""
     raw = _read_json_first("items.json")
     res: dict[str, Any] = {}
@@ -293,6 +292,7 @@ class EnemyBlueprint:
     gold_min: int = 0
     gold_max: int = 0
     behavior: str | None = None
+    drops: dict | None = None
 
     def build(self, *, level: int) -> Enemy:
         # applique un scaling simple
@@ -378,9 +378,10 @@ def load_enemy_blueprints(attacks_registry: dict[str, Attack]) -> dict[str, Enem
                     weights = list(row.get("attack_weights", [])) or [1] * max(1, len(atk_objs))
                     scaling = dict(row.get("scaling", {}))
                     behavior = row.get("behavior", None)
+                    drops = row.get("drops", None)
+                    drops = dict(drops) if isinstance(drops, dict) else None
                     res[eid] = EnemyBlueprint(
-                        enemy_id=eid, name=name, base_stats=base_stats,
-                        hp_max=hp, sp_max=sp, attacks=atk_objs, attack_weights=weights, scaling=scaling, gold_max=gold_max, gold_min=gold_min, behavior=behavior
+                        enemy_id=eid, name=name, base_stats=base_stats, hp_max=hp, sp_max=sp, attacks=atk_objs, attack_weights=weights, scaling=scaling, gold_max=gold_max, gold_min=gold_min, behavior=behavior, drops=drops
                         )
                 except Exception:
                     continue
