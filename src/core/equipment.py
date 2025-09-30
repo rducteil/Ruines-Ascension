@@ -34,6 +34,7 @@ class Equipment:
         self.description = description
         self._holder = _holder
         self._bonuses_applied = _bonuses_applied    
+        self._slot: str = ""
 
     # --- état ---
     def is_broken(self) -> bool:
@@ -43,6 +44,10 @@ class Equipment:
     def bonuses_active(self) -> bool:
         """Vrai si les bonus sont effectivement appliqués au porteur."""
         return (self._holder is not None) and (not self.is_broken()) and self._bonuses_applied
+    
+    @property
+    def slot(self) -> str:
+        return self._slot
 
     # --- cycle de vie d'équipement ---
     def on_equip(self, entity: Entity) -> None:
@@ -133,6 +138,7 @@ class Weapon(Equipment):
         super().__init__(name=name, durability_max=durability_max, description=description)
         self.bonus_attack: int = int(bonus_attack)
         self.special_attacks: list[Attack] = list(special_attacks or [])
+        self._slot = "weapon"
 
     def get_available_attacks(self) -> list[Attack]:
         """Attaques spéciales offertes par l'arme (optionnel)."""
@@ -162,6 +168,7 @@ class Armor(Equipment):
                  description: str = "") -> None:
         super().__init__(name=name, durability_max=durability_max, description=description)
         self.bonus_defense: int = int(bonus_defense)
+        self._slot = "armor"
 
     
 
@@ -188,9 +195,10 @@ class Artifact(Equipment):
                  lck_pct=0.0, 
                  description: str = ""):
         super().__init__(name=name, durability_max=durability_max, description=description)
-        self.atk_pct = int(atk_pct)
-        self.def_pct = int(def_pct)
-        self.lck_pct = int(lck_pct)
+        self.atk_pct = float(atk_pct)
+        self.def_pct = float(def_pct)
+        self.lck_pct = float(lck_pct)
+        self._slot = "artifact"
 
     # --- stat bonuses ---
     def apply_bonuses(self, entity: Entity):

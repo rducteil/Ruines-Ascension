@@ -17,8 +17,8 @@ if TYPE_CHECKING:
     from core.combat import CombatEvent, CombatContext
     from core.item import Item
 
-Slot: TypeAlias = Literal["primary", "skill", "utility"]
-VALID_SLOT = ("primary", "skill", "utility")
+Slot: TypeAlias = Literal["weapon", "armor", "artifact"]
+VALID_SLOT = ("weapon", "armor", "artifact")
 
 
 @dataclass
@@ -154,11 +154,12 @@ class Inventory:
 
     # ---- (Dé)équiper depuis l’inventaire ----
 
-    def equip_to(self, owner: Player, equip: Equipment, slot: Slot) -> bool:
+    def equip_to(self, owner: Player, equip: Equipment) -> bool:
         """Équipe `equip` (doit être présent dans l’inventaire). Si un objet occupait le slot, il est renvoyé dans l’inventaire.
 
         Retourne False si pas de place pour récupérer l'ancien équipement.
         """
+        slot = equip._slot
         if slot not in VALID_SLOT:
             raise ValueError(f"slot invalide {slot}")  
         if equip not in self._equipment:
@@ -170,7 +171,7 @@ class Inventory:
             return False
 
         # Équipe
-        owner.equip(equip, slot)  # ton Player.equip(...) appelle on_equip
+        owner.equip(equip) 
         self.remove_equipment(equip)
 
         # Récupérer l'ancien si existait
@@ -188,3 +189,48 @@ class Inventory:
         owner.unequip(slot)  # ton Player.unequip(...) appelle on_unequip
         self.add_equipment(current)
         return True
+    
+    # === Equipement par slot d'équipement (weapon/armor/artifact) ===
+
+    def equip_equipment_by_index(self, owner: Player, index: int) -> tuple[bool, str]:
+        """
+        Équipe l'équipement à l'index `index` dans self._equipment sur le `slot` ("weapon"|"armor"|"artifact").
+        Replace l'ancien équipement (s'il existe) dans l'inventaire.
+
+        Retourne (ok, message).
+        """
+
+        eqs: list[Equipment] = getattr(self, "_equipment", []) or []
+        if index < 0 or index >= len(eqs):
+            return (False, "Index hors limites.")
+
+        item = eqs.pop(index)
+        slot = item._slot
+        if slot not in ("weapon", "armor", "artifact"):
+            return (False, f"Slot invalide: {slot}")
+        
+        # Récupérer l'ancien
+        try:
+            current = owner.equipment.get(slot)
+        except Exception:
+            current = getattr(getattr(owner, "equipment", None), slot, None)
+
+        # Vérifier la place si on doit récupérer l'ancien
+        if current is not None and current is not getattr(owner.equipment, slot, None):
+            # (ce cas ne devrait pas arriver)
+            pass
+        if current is not None and self.slots_free <= 0:
+            # On remet l'item sélectionné et on annule
+            eqs.insert(index, item)
+            return (False, "Pas assez de place pour récupérer l'ancien équipement.")
+
+        # Équiper via Player (applique les bonus)
+        owner.equip(item)
+
+        # Remettre l'ancien dans l'inventaire
+        if current is not None:
+            eqs.append(current)
+
+        setattr(self, "_equipment", eqs)  # réécrit la liste
+        return (True, f"{slot}: {getattr(item, 'name', '???')}")
+

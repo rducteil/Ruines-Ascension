@@ -36,7 +36,7 @@ class ConsoleIO:
 
     def show_status(self, player: Player, enemy: Enemy) -> None:
         print(f"   PV {player.name}: {player.hp}/{player.max_hp}  |  PV {enemy.name}: {enemy.hp}/{enemy.max_hp}")
-        print(f"   SP {player.name}: {player.sp}/{player.max_sp}  |")
+        print(f"   SP {player.name}: {player.sp}/{player.max_sp}")
 
     def on_battle_end(self, player: Player, enemy: Enemy, victory: bool) -> None:
         msg = f"Victoire ! {enemy.name} est vaincu." if victory else f"Défaite… {player.name} tombe au combat."
@@ -49,8 +49,9 @@ class ConsoleIO:
         while act:
             print("\nChoisis une action :")
             print("  1) Attaquer")
-            print("  2) Objet")
-            c = self._ask_index(2)
+            print("  2) Inventaire")
+            print("  3) Voir fiche")
+            c = self._ask_index(3)
 
             if c == 0:
                 # Utiliser la liste "attacks" passée par GameLoop
@@ -62,27 +63,17 @@ class ConsoleIO:
                         lo, hi = engine.estimate_damage(player, enemy, a)
                         label = f"  {i}) {a.name} (≈{lo}–{hi}, SP {a.cost})"
                     print(label)
-                    nm = getattr(a, "name", "???")
-                    cost = getattr(a, "cost", 0)
-                    dmg  = getattr(a, "base_damage", 0)
-                    var  = getattr(a, "variance", 0)
                 idx = self._ask_index(len(attacks))
                 sleep(0.5)
                 return ("attack", attacks[idx])
             elif c == 1:
-                # Objet
-                items = [row for row in inventory.list_summary() if row["kind"] == "item"]
-                if not items:
-                    print("   Aucun objet utilisable")
-                    input("   (Entrée pour revenir)")
-                    continue
-                print("Objets :")
-                for i, it in enumerate(items, 1):
-                    print(f"  {i}) {it['name']} x{it['qty']}")
-                idx = self._ask_index(len(items))
-                item_id = items[idx]["id"]
-                sleep(0.5)
-                return ("item", item_id)         
+                # Inventaire (sous-menu)
+                sub = self._choose_inventory_action(player, inventory, enemy, engine)
+                if sub is None:
+                    return ("inspect", None)
+                return ("inventory", sub)
+            else:  # 3 -> Voir fiche
+                return ("inspect", None)    
 
     # ---------- Zones / Sections ----------
 
@@ -113,9 +104,12 @@ class ConsoleIO:
         print("  3) Boutique")
         print("  4) Sauvegarder")
         print("  5) Charger")
-        print("  6) Quitter")
-        idx = self._ask_index(6)
-        return ["REST","REPAIR","SHOP","SAVE", "LOAD", "LEAVE"][idx]
+        print("  6) Voir fiche")
+        print("  7) Equiper")
+        print("  8) Vendre")
+        print("  9) Quitter")
+        idx = self._ask_index(9)
+        return ["REST","REPAIR","SHOP","SAVE", "LOAD", "INSPECT","EQUIP","SELL", "LEAVE"][idx]
 
     def choose_shop_purchase(self, offers: list[ShopOffer], *, wallet:Wallet):
         print(f"\nBoutique (or: {wallet.gold})")
@@ -175,6 +169,73 @@ class ConsoleIO:
             if 1 <= i <= length:
                 return i - 1
             print(f"Choisis un nombre entre 1 et {length}.")
+
+    def _choose_inventory_action(self, player, inventory: Inventory, enemy, engine):
+        # Construit deux listes
+        items = [row for row in inventory.list_summary() if row["kind"] == "item"]
+        eqs   = inventory.list_equipment()
+
+        while True:
+            print("\nInventaire :")
+            print("  1) Utiliser un objet")
+            print("  2) Équiper un équipement")
+            print("  3) Voir fiche")
+            print("  4) Retour")
+            c = self._ask_index(4)
+
+            if c == 0:
+                if not items:
+                    print("   Aucun objet utilisable."); input("(Entrée)"); continue
+                print("Objets :")
+                for i, it in enumerate(items, 1):
+                    print(f"  {i}) {it['name']} x{it['qty']}")
+                idx = self._ask_index(len(items))
+                return {"action": "use_item", "item_id": items[idx]["id"]}
+
+            elif c == 1:
+                if not eqs:
+                    print("   Aucun équipement en inventaire."); input("(Entrée)"); continue
+                print("Équipements :")
+                for i, e in enumerate(eqs, 1):
+                    sl = getattr(e, "slot", getattr(e, "_slot", "?"))
+                    print(f"  {i}) [{sl}] {e.name} — {e.get_info()}")
+                idx = self._ask_index(len(eqs))
+                return {"action": "equip", "index": idx}
+
+            elif c == 2:
+                return {"action": "inspect"}
+
+            else:
+                return None
+
+
+    def choose_inventory_equip(self, player, *, inventory: Inventory):
+        eqs = inventory.list_equipment()
+        if not eqs:
+            print("   Aucun équipement en inventaire.")
+            input("   (Entrée pour revenir)")
+            return None
+        print("Équipements en inventaire :")
+        for i, e in enumerate(eqs, 1):
+            nm = getattr(e, "name", "???")
+            sl = getattr(e, "slot", getattr(e, "_slot", "?"))
+            print(f"  {i}) [{sl}] {nm} — {e.get_info()}")
+        idx = self._ask_index(len(eqs))
+        return {"index": idx}
+
+    def choose_sell_items(self, inventory: Inventory, *, wallet):
+        items = [row for row in inventory.list_summary() if row["kind"] == "item"]
+        if not items:
+            print("   Aucun consommable à vendre.")
+            input("   (Entrée pour revenir)")
+            return None
+        print("Vendre quel objet ?")
+        for i, it in enumerate(items, 1):
+            print(f"  {i}) {it['name']} x{it['qty']}")
+        idx = self._ask_index(len(items))
+        qraw = input("> Quantité (défaut 1): ").strip()
+        qty = int(qraw) if qraw.isdigit() else 1
+        return {"item_id": items[idx]["id"], "qty": max(1, qty)}
 
     def present_text(self, text: str) -> None:
         print(text)

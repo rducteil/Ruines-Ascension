@@ -30,6 +30,8 @@ from core.event_engine import EventEngine
 from core.save import save_to_file, load_from_file
 from core.data_loader import load_enemy_blueprints, load_encounter_tables, load_equipment_banks, load_equipment_zone_index, load_items, load_attacks, EnemyBlueprint
 from content.effects_bank import make_effect
+from core.equipment import Equipment
+from core.item import Item
 
 
 
@@ -54,6 +56,8 @@ class GameIO(Protocol):
     def choose_shop_purchase(self, offers: list[ShopOffer], *, wallet:Wallet): ...
     def choose_event_option(self, text: str, options: Sequence[str]): ...
     def choose_next_zone(self, options: Sequence[ZoneType]) -> ZoneType: ...
+    def choose_inventory_equip(self, player, *, inventory: Inventory): ...
+    def choose_sell_items(self, inventory: Inventory, *, wallet): ...
     def present_text(self, text: str) -> None: ...
 
 
@@ -284,14 +288,48 @@ class GameLoop:
 
         while self.player.hp > 0 and enemy.hp > 0 and self.running:
             # --- Tour du joueur ---
-            act_kind, payload = self._choose_player_action(enemy)
-            if act_kind == "item":
-                res_p = self._use_item_in_combat(payload) # payload = item_id
-            elif act_kind == "attack":
-                p_attack: Attack = payload
-                res_p = self.engine.resolve_turn(self.player, enemy, p_attack)
-                # On gère les effets player
-                self._apply_attack_effects(attacker=self.player, defender=enemy, attack=p_attack, result=res_p)
+            while True:
+                act_kind, payload = self._choose_player_action(enemy)
+                if act_kind == "item":
+                    res_p = self._use_item_in_combat(payload) # payload = item_id
+                    break
+                elif act_kind == "attack":
+                    p_attack: Attack = payload
+                    res_p = self.engine.resolve_turn(self.player, enemy, p_attack)
+                    # On gère les effets player
+                    self._apply_attack_effects(attacker=self.player, defender=enemy, attack=p_attack, result=res_p)
+                    break
+                elif act_kind == "equip":
+                    # payload ex. {"slot":"weapon","index":0}
+                    payload = payload or {}
+                    idx  = int(payload.get("index", -1))
+                    ok, msg = self.player_inventory.equip_equipment_by_index(self.player, idx)
+                    # Cette action consomme le tour et n'inflige pas de dégâts
+                    if self.io:
+                        self.io.present_text(("Équipement: " + msg) if ok else ("Échec: " + msg))
+                    continue
+                elif act_kind == "inspect":
+                    if self.io:
+                        self.io.present_text(self._player_sheet(enemy))
+                    continue
+                elif act_kind == "inventory":
+                    sub = payload or {}
+                    a = sub.get("action")
+                    if a == "equip":
+                        idx = int(sub.get("index", -1))
+                        ok, msg = self.player_inventory.equip_equipment_by_index(self.player, idx)
+                        if self.io:
+                            self.io.present_text(("Équipement: " + msg) if ok else ("Échec: " + msg))
+                        continue
+                    if a == "inspect":
+                        if self.io:
+                            self.io.present_text(self._player_sheet(enemy))
+                        continue
+                    if a == "use_item":
+                        act_kind = "item"
+                        payload = sub.get("item_id")
+                        break
+                    continue
 
             # On gère l'affichage I/O
             if self.io:
@@ -344,6 +382,12 @@ class GameLoop:
         # attaques d'arme
         if self.player.equipment.weapon.bonus_attack:
             atks.append(self.player.equipment.weapon.bonus_attack)
+        try:
+            for sp in self.player.equipment.weapon.get_available_attacks():
+                if isinstance(sp, Attack):
+                    atks.append(sp)
+        except Exception:
+            pass
 
         # Verification
         atks = [a for a in atks if isinstance(a, Attack)]
@@ -527,6 +571,43 @@ class GameLoop:
                     if res is not None and self.io:
                         self.io.present_events(CombatResult(events=res.events, attacker_alive=True, defender_alive=True, damage_dealt=0, was_crit=False))
                     break
+                elif action == "INSPECT":
+                    if self.io:
+                        self.io.present_text(self._player_sheet(None))
+                    res = None  # pas d'événement combat
+                    continue
+
+                elif action == "EQUIP":
+                    # L’IO peut proposer une sélection (slot,index). À défaut, on montre la liste.
+                    payload = None
+                    if hasattr(self.io, "choose_inventory_equip"):
+                        payload = self.io.choose_inventory_equip(self.player, inventory=self.player_inventory)
+                        # attendu: {"index": 0} (slot inféré) ou None
+                    if not payload:
+                        # fallback: on affiche la liste
+                        if self.io:
+                            self.io.present_text(self._player_sheet(None))
+                        res = None
+                    else:
+                        ok, msg = self.player_inventory.equip_equipment_by_index(self.player, int(payload.get("index",-1)))
+                        if self.io:
+                            self.io.present_text(("Équipement: " + msg) if ok else ("Échec: " + msg))
+                        res = None
+                    continue
+
+                elif action == "SELL":
+                    # (Optionnel) vente de consommables par ID (ex: "potion_hp_s"), IO choisit item_id + qty
+                    payload = None
+                    if hasattr(self.io, "choose_sell_items"):
+                        payload = self.io.choose_sell_items(self.player_inventory, wallet=self.wallet)
+                        # attendu: {"item_id":"potion_hp_s","qty":2} ou None
+                    if payload:
+                        ok, msg = self._sell_item(payload.get("item_id",""), int(payload.get("qty", 0)))
+                        if self.io:
+                            self.io.present_text(msg)
+                    res = None
+                    break
+
                 elif action == "SAVE":
                     ok = save_to_file(self, "save_slot_1.json")
                     if self.io:
@@ -778,6 +859,80 @@ class GameLoop:
         if added and self.io:
             self.io.present_text("Butin: " + ", ".join(added) + ".")
 
+    def _sell_item(self, item_id: str, qty: int) -> tuple[bool, str]:
+        """Vend jusqu'à `qty` unités d'un consommable. Prix = 50% du base_price de items.json."""
+        if not item_id or qty <= 0:
+            return (False, "Vente: item ou quantité invalide.")
+
+        factories = getattr(self, "item_factories", {}) or {}
+        fac = factories.get(item_id)
+        if not fac:
+            return (False, f"Vente: item inconnu '{item_id}'.")
+        try:
+            sample: Item | Equipment = fac()  # instance pour lire le nom/prix
+        except Exception:
+            return (False, "Vente: impossible d'instancier l'objet.")
+
+        base_price = int(getattr(sample, "base_price", 0))
+        if base_price <= 0:
+            return (False, f"Vente: '{sample.name}' n'a pas de valeur.")
+        have = self.player_inventory.count(item_id)
+        if have <= 0:
+            return (False, f"Vente: vous n'avez pas de {sample.name}.")
+        take = min(have, int(qty))
+        removed = self.player_inventory.remove_item(item_id, take)
+        if removed <= 0:
+            return (False, "Vente: rien retiré.")
+
+        revenue = int(0.5 * base_price * removed)
+        self.wallet.add(revenue)
+        return (True, f"Vendu {removed}× {sample.name} pour {revenue} or.")
+
+
+    def _player_sheet(self, enemy: Enemy | None = None) -> str:
+        """Construit un petit résumé: stats, attaques dispo (avec estimation), équipement."""
+        lines: list[str] = []
+        p: Player = self.player
+        lines.append(f"— Fiche de {p.name} —")
+        lines.append(f"HP: {p.hp}/{p.max_hp} | SP: {p.sp}/{p.max_sp}")
+        lines.append(f"ATK: {p.base_stats.attack} | DEF: {p.base_stats.defense} | LCK: {p.base_stats.luck}")
+        lines.append("")
+
+        # Attaques (avec estimation si ennemi fourni)
+        atks = self._gather_player_attacks()
+        lines.append("Attaques disponibles:")
+        if not atks:
+            lines.append("  (Aucune)")
+        else:
+            for a in atks:
+                if enemy is not None:
+                    lo, hi = self.engine.estimate_damage(p, enemy, a)
+                    span = f"{lo}–{hi}"
+                else:
+                    span = "?"
+                desc = getattr(a, "description", "") or ""
+                lines.append(f"  • {a.name} (coût SP: {a.cost}) | Dégâts ~ {span} | {desc}")
+
+        lines.append("")
+        # Équipement
+        eq = p.equipment
+        lines.append("Équipement:")
+        lines.append(f"  Arme     : {eq.weapon.get_info()}")
+        lines.append(f"  Armure   : {eq.armor.get_info()}")
+        lines.append(f"  Artefact : {eq.artifact.get_info()}")
+
+        # Inventaire (équipement stocké)
+        try:
+            stored = self.player_inventory.list_equipment()
+            if stored:
+                lines.append("")
+                lines.append("Équipements en inventaire:")
+                for i, e in enumerate(stored):
+                    lines.append(f"  [{i}] {e.get_info()}")
+        except Exception:
+            pass
+
+        return "\n".join(lines)
 
 
     def _is_allowed(self, offer: ShopOffer) -> bool:

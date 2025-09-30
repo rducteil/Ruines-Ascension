@@ -118,14 +118,14 @@ def _equipment_slot_to_dict(slot_obj: Equipment) -> dict | None:
     }
     if isinstance(slot_obj, Weapon):
         base.update({
-            "kind": "weapon",
+            "kind": slot_obj._slot,
             "bonus_attack": int(getattr(slot_obj, "bonus_attack", 0)),
         })
     elif isinstance(slot_obj, Armor):
-        base.update({"kind": "armor", "bonus_defense": getattr(slot_obj, "bonus_defense", 0)})
+        base.update({"kind": slot_obj._slot, "bonus_defense": getattr(slot_obj, "bonus_defense", 0)})
     elif isinstance(slot_obj, Artifact):
         spm = slot_obj.stat_percent_mod()
-        base.update({"kind": "artifact", "atk_pct": spm.attack_pct, "def_pct": spm.defense_pct, "lck_pct": spm.luck_pct})
+        base.update({"kind": slot_obj._slot, "atk_pct": spm.attack_pct, "def_pct": spm.defense_pct, "lck_pct": spm.luck_pct})
     else:
         base.update({"kind": "unknown"})
     return base

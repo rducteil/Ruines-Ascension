@@ -46,9 +46,10 @@ class Player(Entity):
     def __str__(self):
         return f"{self.name} ({self.player_class.name})\n" + super().__str__()
 
-    def equip(self, new_item: "Equipment", slot: Slot):
+    def equip(self, new_item: "Equipment"):
         """Equipe un item dans le bon slot du set"""
         # Vérifie que c'est le bon slot
+        slot = new_item._slot
         if slot not in VALID_SLOT:
             raise ValueError(f"slot invalid {slot}")
         # Vérifie que l'item n'a pas de holder
