@@ -29,6 +29,7 @@ from core.enemy import Enemy
 from core.equipment import Weapon, Armor, Artifact
 from core.equipment_set import EquipmentSet
 from core.combat import CombatEvent
+from core.behavior import BEHAVIOR_REGISTRY
 
 
 # ---------- Helpers JSON ----------
@@ -291,6 +292,7 @@ class EnemyBlueprint:
     scaling: dict
     gold_min: int = 0
     gold_max: int = 0
+    behavior: str | None = None
 
     def build(self, *, level: int) -> Enemy:
         # applique un scaling simple
@@ -305,6 +307,12 @@ class EnemyBlueprint:
             base_hp_max=hp,
             base_sp_max=self.sp_max
         )
+        try:
+            key = (self.behavior or "balanced").strip().lower()
+            cls = BEHAVIOR_REGISTRY.get(key)
+            e.behavior_ai = cls() if cls else None
+        except Exception:
+            e.behavior_ai = None
         # on accroche la liste d'attaques côté ennemi pour que _select_enemy_attack puisse piocher
         setattr(e, "attacks", list(self.attacks))
         setattr(e, "attack_weights", list(self.attack_weights or [1] * max(1, len(self.attacks))))
@@ -345,13 +353,35 @@ def load_enemy_blueprints(attacks_registry: dict[str, Attack]) -> dict[str, Enem
                     gold_min = int(row.get("gold_min", 0))
                     gold_max = int(row.get("gold_max", 0))
                     atk_keys: list[str] = list(row.get("attacks", []))
-                    atk_objs = [attacks_registry[k] for k in atk_keys if k in attacks_registry]
+                    atk_objs = []
+                    # 1) Teste résolution par json (ids)
+                    for k in atk_keys:
+                        kk = str(k).strip().lower()
+                        if kk in attacks_registry:
+                            atk_objs.append(attacks_registry[kk]); continue
+                        # 2) Teste via content.actions
+                        try:
+                            import content.actions as _atcs
+                            cand = getattr(_atcs, k, None)
+                            if isinstance(cand, Attack):
+                                atk_objs.append(cand); continue
+                        except Exception:
+                            pass
+                        # 3) Test via match sur Attack.name
+                        try:
+                            import content.actions as _atcs
+                            for _v in vars(_atcs).values():
+                                if isinstance(_v, Attack) and str(_v.name).strip().lower() == kk:
+                                    atk_objs.append(_v); break
+                        except Exception:
+                            pass
                     weights = list(row.get("attack_weights", [])) or [1] * max(1, len(atk_objs))
                     scaling = dict(row.get("scaling", {}))
+                    behavior = row.get("behavior", None)
                     res[eid] = EnemyBlueprint(
                         enemy_id=eid, name=name, base_stats=base_stats,
-                        hp_max=hp, sp_max=sp, attacks=atk_objs, attack_weights=weights, scaling=scaling, gold_max=gold_max, gold_min=gold_min
-                    )
+                        hp_max=hp, sp_max=sp, attacks=atk_objs, attack_weights=weights, scaling=scaling, gold_max=gold_max, gold_min=gold_min, behavior=behavior
+                        )
                 except Exception:
                     continue
     return res

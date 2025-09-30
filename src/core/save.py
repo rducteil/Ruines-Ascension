@@ -88,7 +88,6 @@ def _attack_to_dict(atk: Attack) -> dict:
             d["target"] = getattr(atk, "target")
     return d
 
-
 def _attack_from_dict(d: dict) -> Attack:
     # Reconstitue l'attaque (effets via effects_bank)
     effs = []
@@ -131,7 +130,6 @@ def _equipment_slot_to_dict(slot_obj: Equipment) -> dict | None:
         base.update({"kind": "unknown"})
     return base
 
-
 def _equipment_slot_from_dict(d: dict | None):
     if not d:
         return None
@@ -140,12 +138,25 @@ def _equipment_slot_from_dict(d: dict | None):
     dur = d.get("durability", {"current": 1, "maximum": 1})
     if k == "weapon":
         bonus = int(d.get("bonus_attack", 0))
-        obj = Weapon(name=name, durability_max=int(dur.get("maximum", 1)), bonus_attack=bonus)
+        obj = Weapon(
+            name=name, 
+            durability_max=int(dur.get("maximum", 1)), 
+            bonus_attack=bonus
+            )
     elif k == "armor":
-        obj = Armor(name=name, durability_max=int(dur.get("maximum", 1)), bonus_defense=int(d.get("bonus_defense", 0)))
+        obj = Armor(
+            name=name, 
+            durability_max=int(dur.get("maximum", 1)), 
+            bonus_defense=int(d.get("bonus_defense", 0))
+            )
     elif k == "artifact":
-        obj = Artifact(name=name, durability_max=int(dur.get("maximum", 1)),
-                       atk_pct=float(d.get("atk_pct", 0.0)), def_pct=float(d.get("def_pct", 0.0)))
+        obj = Artifact(
+            name=name, 
+            durability_max=int(dur.get("maximum", 1)),
+            atk_pct=float(d.get("atk_pct", 0.0)), 
+            def_pct=float(d.get("def_pct", 0.0)),
+            lck_pct=float(d.get("lck_pct", 0.0))
+            )
     else:
         return None
     # positionner la durabilité courante
@@ -153,41 +164,9 @@ def _equipment_slot_from_dict(d: dict | None):
     return obj
 
 
-def _effects_to_list(effects_mgr, target) -> list[dict]:
-    """Réduit les effets actifs sur `target` (s'ils existent) à des payloads JSON."""
-    out: list[dict] = []
-    if effects_mgr is None:
-        return out
-    # On suppose que le manager expose something comme get_active(target) -> Iterable[Effect]
-    try:
-        active = list(effects_mgr.get_active(target))
-    except Exception:
-        active = []
-    for e in active:
-        eid = getattr(e, "effect_id", None) or getattr(e, "name", None)
-        out.append({
-            "effect_id": str(eid) if eid is not None else "custom",
-            "duration": int(getattr(e, "remaining", getattr(e, "duration", 0))),
-            "potency": int(getattr(e, "potency", 0)),
-        })
-    return out
-
-
-def _effects_from_list(effects_mgr, target, payloads: list[dict], ctx=None) -> None:
-    if effects_mgr is None:
-        return
-    for p in payloads or []:
-        eff = make_effect(p.get("effect_id"), duration=int(p.get("duration", 0)), potency=int(p.get("potency", 0)))
-        try:
-            effects_mgr.apply(target, eff, source_name="save:load", ctx=ctx)
-        except Exception:
-            # fallback: appliquer sans manager
-            eff.on_apply(target, ctx)
-
-
 # --------------------- API publique ---------------------
 
-def game_to_dict(loop: GameLoop) -> dict:
+def game_to_dict0(loop: GameLoop) -> dict:
     """Capture l'état du GameLoop (sans UI) en dict JSON-sérialisable."""
     player: Player = loop.player
     inv: Inventory = loop.player_inventory
@@ -222,9 +201,17 @@ def game_to_dict(loop: GameLoop) -> dict:
 
     # Inventaire (items stackables)
     inv_rows = []
-    for row in inv.list_summary():
-        if row["kind"] == "item":
-            inv_rows.append({"item_id": row["id"], "qty": int(row["qty"])})
+    try:
+        for row in inv.list_summary():
+            if row["kind"] == "item":
+                inv_rows.append({"item_id": row["id"], "qty": int(row["qty"])})
+    except Exception:
+        # Fallback minimaliste si list_summary() n'est pas dispo
+        stacks = getattr(inv, "_stacks", {}) or {}
+        for item_id, lst in stacks.items():
+            total = sum(int(getattr(s, "qty", 0)) for s in lst)
+            if total > 0:
+                inv_rows.append({"item_id": str(item_id), "qty": total})
 
     # Loadout courant (3 attaques + attaque de classe si existante)
     lo_mgr = loop.loadouts
@@ -270,8 +257,115 @@ def game_to_dict(loop: GameLoop) -> dict:
         "rng_state": rng_state,
     }
 
+def game_to_dict(game: GameLoop) -> dict:
+    """Snapshot sérialisable de l'état *essentiel* de la partie (pour JSON).
+    Ne dépend pas de l'UI. Se contente de types simples (int/float/str/dict/list).
+    """
+    # Imports locaux pour éviter les cycles au chargement du module
+    from core.equipment import Weapon, Armor, Artifact
 
-def dict_to_game(data: dict, *, io=None):
+    def _res_to_dict(res) -> dict:
+        return {"current": int(getattr(res, "current", 0)),
+                "maximum": int(getattr(res, "maximum", 0))}
+
+    def _stats_to_dict(stats) -> dict:
+        return {
+            "attack": int(getattr(stats, "attack", 0)),
+            "defense": int(getattr(stats, "defense", 0)),
+            "luck": int(getattr(stats, "luck", 0)),
+            "crit_multiplier": float(getattr(stats, "crit_multiplier", 2.0)),
+        }
+
+    def _equip_slot_to_dict(obj) -> dict | None:
+        if obj is None:
+            return None
+        base = {
+            "name": getattr(obj, "name", ""),
+            "description": getattr(obj, "description", ""),
+            "durability": {
+                "current": int(getattr(getattr(obj, "durability", None), "current", 0)),
+                "maximum": int(getattr(getattr(obj, "durability", None), "maximum", 0)),
+            },
+        }
+        # Type concret & champs spécifiques
+        if isinstance(obj, Weapon):
+            base.update({"kind": "weapon", "bonus_attack": int(getattr(obj, "bonus_attack", 0))})
+        elif isinstance(obj, Armor):
+            base.update({"kind": "armor", "bonus_defense": int(getattr(obj, "bonus_defense", 0))})
+        elif isinstance(obj, Artifact):
+            base.update({
+                "kind": "artifact",
+                "atk_pct": float(getattr(obj, "atk_pct", 0.0)),
+                "def_pct": float(getattr(obj, "def_pct", 0.0)),
+                "lck_pct": float(getattr(obj, "lck_pct", 0.0)),
+            })
+        else:
+            base.update({"kind": "unknown"})
+        return base
+
+    def _inventory_to_dict(inv) -> dict:
+        # Items stackables (total par item_id)
+        items_rows = []
+        stacks = getattr(inv, "_stacks", {}) or {}
+        for item_id, lst in stacks.items():
+            total = sum(int(getattr(st, "qty", 0)) for st in lst)
+            if total > 0:
+                items_rows.append({"item_id": str(item_id), "qty": int(total)})
+        # Équipements non stackables
+        equips_rows = []
+        for eq in list(getattr(inv, "_equipment", []) or []):
+            equips_rows.append(_equip_slot_to_dict(eq))
+        return {"items": items_rows, "equipment": equips_rows, "capacity": int(getattr(inv, "capacity", 0))}
+
+    # ---- Player & Game ----
+    p = game.player
+
+    # Loadout → on capture juste les noms (résolution à la lecture)
+    loadout_row = {"primary": None, "skill": None, "utility": None, "class_attack_unlocked": False}
+    try:
+        ld = game.loadouts.get(p)
+        if ld:
+            for slot in ("primary", "skill", "utility"):
+                atk = getattr(ld, slot, None)
+                loadout_row[slot] = getattr(atk, "name", None) if atk else None
+    except Exception:
+        pass
+    loadout_row["class_attack_unlocked"] = bool(getattr(p, "class_attack_unlocked", False))
+
+    out = {
+        "version": int(globals().get("SAVE_VERSION", 1)),
+        "player": {
+            "name": getattr(p, "name", "Héros"),
+            "class_key": getattr(p, "player_class_key", "guerrier"),
+            "base_stats": _stats_to_dict(getattr(p, "base_stats", None)),
+            "hp": _res_to_dict(getattr(p, "hp_res", None)),
+            "sp": _res_to_dict(getattr(p, "sp_res", None)),
+        },
+        "wallet": {"gold": int(getattr(getattr(game, "wallet", None), "gold", 0))},
+        "zone": {
+            "type": getattr(getattr(getattr(game, "zone", None), "zone_type", None), "name", "RUINS"),
+            "level": int(getattr(getattr(game, "zone", None), "level", 1)),
+            "explored": int(getattr(getattr(game, "zone", None), "explored", 0)),
+        },
+        "equipment": {
+            "weapon": _equip_slot_to_dict(getattr(getattr(p, "equipment", None), "weapon", None)),
+            "armor": _equip_slot_to_dict(getattr(getattr(p, "equipment", None), "armor", None)),
+            "artifact": _equip_slot_to_dict(getattr(getattr(p, "equipment", None), "artifact", None)),
+        },
+        "inventory": _inventory_to_dict(getattr(game, "player_inventory", None)),
+        "effects": [],
+        "loadout": loadout_row,
+        "rng_seed": getattr(game, "seed", None),
+    }
+    try:
+        # EffectManager.snapshot retourne déjà une liste de dict
+        out["effects"] = game.effects.snapshot(p)
+    except Exception:
+        out["effects"] = []
+    return out
+
+
+def dict_to_game0(data: dict, *, io=None):
     """Reconstruit un GameLoop neuf à partir d'un dict de save.
     Nécessite les modules du jeu (Player, GameLoop, etc.) mais pas l'UI spécifique.
     """
@@ -361,6 +455,200 @@ def dict_to_game(data: dict, *, io=None):
 
     return loop
 
+def dict_to_game(data: dict, *, io=None):
+    """Reconstruit un GameLoop complet depuis un dict JSON.
+    Tolérant aux versions et clés manquantes.
+    """
+    # Imports locaux pour éviter les cycles
+    from core.stats import Stats
+    from core.player import Player
+    from core.resource import Resource
+    from core.equipment import Weapon, Armor, Artifact
+    from core.equipment_set import EquipmentSet
+    from core.loadout import Loadout
+    from game.game_loop import GameLoop, ZoneType
+    import inspect
+    from core import effects as _effects_mod
+    from core.effects import Effect as _BaseEffect
+
+    def _zone_from_name(name: str | None):
+        if not name:
+            return None
+        try:
+            return ZoneType[name]
+        except Exception:
+            return None
+
+    def _res_apply(entity, res_name: str, row: dict):
+        # Fixe maximum puis current (sans préserver le ratio)
+        res: Resource = getattr(entity, f"{res_name}_res")
+        if isinstance(row, dict):
+            mx = int(row.get("maximum", getattr(res, "maximum", 0)))
+            cur = int(row.get("current", getattr(res, "current", 0)))
+            res.set_maximum(mx, preserve_ratio=False)
+            res.current = max(0, min(cur, res.maximum))
+
+    def _stats_from_dict(d: dict) -> Stats:
+        d = d or {}
+        return Stats(
+            int(d.get("attack", 0)),
+            int(d.get("defense", 0)),
+            int(d.get("luck", 0)),
+            float(d.get("crit_multiplier", 2.0)),
+        )
+
+    def _equip_from_row(row) -> object | None:
+        if not row or not isinstance(row, dict):
+            return None
+        k = row.get("kind")
+        name = row.get("name", "")
+        desc = row.get("description", "")
+        dur = row.get("durability", {}) or {}
+        dmax = int(dur.get("maximum", 1))
+        cur = int(dur.get("current", dmax))
+        if k == "weapon":
+            obj = Weapon(name=name, durability_max=dmax, bonus_attack=int(row.get("bonus_attack", 0)), description=desc)
+        elif k == "armor":
+            obj = Armor(name=name, durability_max=dmax, bonus_defense=int(row.get("bonus_defense", 0)), description=desc)
+        elif k == "artifact":
+            obj = Artifact(name=name, durability_max=dmax,
+                           atk_pct=float(row.get("atk_pct", 0.0)),
+                           def_pct=float(row.get("def_pct", 0.0)),
+                           lck_pct=float(row.get("lck_pct", 0.0)),
+                           description=desc)
+        else:
+            return None
+        # appliquer current sans déclencher de ratio
+        try:
+            obj.durability.set_maximum(dmax, preserve_ratio=False)
+            obj.durability.current = max(0, min(cur, obj.durability.maximum))
+        except Exception:
+            pass
+        return obj
+
+    # ---------- Player ----------
+    p_row = data.get("player", {}) or {}
+    name = p_row.get("name", "Hero")
+    class_key = (p_row.get("class_key") or "guerrier").strip().lower()
+    base_stats = _stats_from_dict(p_row.get("base_stats"))
+    hp_row = p_row.get("hp", {})
+    sp_row = p_row.get("sp", {})
+
+    # Player.__init__ applique déjà la classe → on fournit des bases, puis on écrase
+    base_hp_max = int(hp_row.get("maximum", 30) or 30)
+    base_sp_max = int(sp_row.get("maximum", 10) or 10)
+    player = Player(name=name, player_class_key=class_key, base_stats=base_stats,
+                    base_hp_max=base_hp_max, base_sp_max=base_sp_max)
+
+    # Fixer HP/SP aux valeurs sauvegardées (après application classe)
+    _res_apply(player, "hp", hp_row)
+    _res_apply(player, "sp", sp_row)
+
+    # ---------- GameLoop ----------
+    zrow = data.get("zone", {}) or {}
+    seed = data.get("rng_seed")
+    loop = GameLoop(player=player, io=io, seed=seed,
+                    initial_zone=_zone_from_name(zrow.get("type")),
+                    start_level=int(zrow.get("level", 1)))
+    try:
+        loop.zone.explored = int(zrow.get("explored", 0))
+    except Exception:
+        pass
+
+    # ---------- Wallet ----------
+    try:
+        loop.wallet.gold = int(data.get("wallet", {}).get("gold", 0))
+    except Exception:
+        pass
+
+    # ---------- Equipment slots ----------
+    eqpack = data.get("equipment", {}) or {}
+    for slot in ("weapon", "armor", "artifact"):
+        obj = _equip_from_row(eqpack.get(slot))
+        if obj is not None:
+            try:
+                player.equip(obj, slot)  # applique bonus via Player.equip
+            except Exception:
+                # fallback: remplacement brut
+                try:
+                    player.equipment.replace(slot=slot, item=obj)
+                except Exception:
+                    pass
+
+    # ---------- Inventory ----------
+    # Items stackables (via ITEM_FACTORY si dispo)
+    try:
+        inv_row = data.get("inventory", {}) or {}
+        from content.items import ITEM_FACTORY as _IF  # id -> prototype Item/Consumable
+    except Exception:
+        _IF = {}
+
+    try:
+        inv = loop.player_inventory
+        for r in inv_row.get("items", []) or []:
+            iid = str(r.get("item_id", "")).strip().lower()
+            qty = int(r.get("qty", 0))
+            proto = _IF.get(iid)
+            if proto and qty > 0:
+                inv.add_item(proto, qty)
+    except Exception:
+        pass
+
+    # Équipements dans l’inventaire
+    try:
+        inv = loop.player_inventory
+        for r in inv_row.get("equipment", []) or []:
+            obj = _equip_from_row(r)
+            if obj is not None:
+                inv.add_equipment(obj)
+        # capacité si présente
+        cap = int(inv_row.get("capacity", 0))
+        if cap > 0:
+            inv.capacity = cap
+    except Exception:
+        pass
+
+    # ---------- Effects ----------
+    # Registre auto à partir de core.effects (cls_name -> classe)
+    try:
+        _EFFECT_REGISTRY = {
+            name: cls
+            for name, cls in inspect.getmembers(_effects_mod, inspect.isclass)
+            if issubclass(cls, _BaseEffect)
+        }
+        loop.effects.restore(loop.player, data.get("effects", []) or [], registry=_EFFECT_REGISTRY, ctx=None)
+    except Exception:
+        pass
+
+    # ---------- Loadout ----------
+    try:
+        lrow = data.get("loadout", {}) or {}
+        wanted = {k: (v or "").strip() or None for k, v in lrow.items() if k in ("primary", "skill", "utility")}
+        # Registry d'attaques (id -> Attack)
+        from core.data_loader import load_attacks
+        attacks_reg = load_attacks()  # {attack_id: Attack}
+        # Build reverse map nom (lower) -> Attack
+        name_map = {}
+        for atk in attacks_reg.values():
+            nm = (getattr(atk, "name", "") or "").strip().lower()
+            if nm and nm not in name_map:
+                name_map[nm] = atk
+        # Résolution par nom
+        def _resolve(n):
+            return name_map.get((n or "").strip().lower())
+
+        loadout = Loadout(
+            primary=_resolve(wanted.get("primary")),
+            skill=_resolve(wanted.get("skill")),
+            utility=_resolve(wanted.get("utility")),
+        )
+        loop.loadouts.set(loop.player, loadout)
+        # Flag classe
+        setattr(loop.player, "class_attack_unlocked", bool(lrow.get("class_attack_unlocked", False)))
+    except Exception:
+        pass
+
+    return loop
 
 # --------------------- helpers fichiers ---------------------
 
@@ -381,3 +669,42 @@ def load_from_file(path: str, *, io=None):
         return dict_to_game(data, io=io)
     except Exception:
         return None
+
+# ------- SELFTEST (à coller tout en bas de src/core/save.py) -------
+
+def _build_min_game():
+    """Construit une partie minimale pour tester save/load."""
+    from core.stats import Stats
+    from core.player import Player
+    from game.game_loop import GameLoop
+
+    p = Player(
+        name="Testeur",
+        player_class_key="guerrier",   # adapte si besoin
+        base_stats=Stats(8, 4, 2, 2.0),
+        base_hp_max=30,
+        base_sp_max=10,
+    )
+    # Zone/seed simples ; GameLoop se charge d'initialiser le reste
+    g = GameLoop(player=p, io=None, seed=42, initial_zone=None, start_level=2)
+    return g
+
+def _selftest_roundtrip(slot_path: str = "save_slot_selftest.json") -> None:
+    """Sauvegarde -> chargement -> quelques asserts basiques."""
+    g1 = _build_min_game()
+
+    ok = save_to_file(g1, slot_path)
+    assert ok, "save_to_file a échoué"
+
+    g2 = load_from_file(slot_path, io=None)
+    assert g2 is not None, "load_from_file a échoué"
+
+    # Vérifications minimales (tu peux en ajouter d'autres)
+    assert g2.player.name == g1.player.name, "Nom du joueur différent après rechargement"
+    assert g2.zone.level == g1.zone.level, "Level de zone différent"
+    assert g2.wallet.gold == g1.wallet.gold, "Gold du wallet différent"
+
+    print("ROUNDTRIP OK →", slot_path)
+
+if __name__ == "__main__":
+    _selftest_roundtrip()

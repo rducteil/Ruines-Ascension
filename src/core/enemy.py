@@ -13,9 +13,10 @@ from core.entity import Entity
 from core.stats import Stats
 from core.equipment import Weapon, Armor, Artifact
 from core.equipment_set import EquipmentSet
+from core.behavior import EnemyBehavior
 
 if TYPE_CHECKING:
-    pass
+    from core.attack import Attack
 
 
 class Enemy(Entity):
@@ -32,7 +33,9 @@ class Enemy(Entity):
                  behavior: str | None = None):
         super().__init__(name=name, base_stats=base_stats, base_hp_max=base_hp_max, base_sp_max=base_sp_max)
         self.behavior: str | None = behavior  # e.g., "aggressif", "défensif"
+        self.behavior_ai : EnemyBehavior | None = None
         self.effect: object | None = None
+        self.attacks: list[Attack] | None = None
         self.equipment: EquipmentSet = EquipmentSet(
             weapon=Weapon(name="Membre", durability_max=inf),
             armor=Armor(name="Chair", durability_max=inf),

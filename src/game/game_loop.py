@@ -28,7 +28,7 @@ from core.supply import SupplyManager
 from content.shop_offers import build_offers, REST_HP_PCT, REST_SP_PCT, REPAIR_COST_PER_POINT, ShopOffer
 from core.event_engine import EventEngine
 from core.save import save_to_file, load_from_file
-from core.data_loader import load_enemy_blueprints, load_encounter_tables, load_equipment_banks, load_equipment_zone_index
+from core.data_loader import load_enemy_blueprints, load_encounter_tables, load_equipment_banks, load_equipment_zone_index, load_items, load_attacks
 from content.effects_bank import make_effect
 
 
@@ -154,9 +154,11 @@ class GameLoop:
             enemy_factory=None
             )
         self.engine = CombatEngine(seed=seed)  # CombatEngine gère crits, usure, etc.
-        self.enemy_blueprints = load_enemy_blueprints(getattr(self, "attacks_reg", {}))
+        self.attacks_reg = load_attacks
+        self.enemy_blueprints = load_enemy_blueprints(self.attacks_reg)
         self.encounter_tables = load_encounter_tables()
         self.weapon_bank, self.armor_bank, self.artifact_bank = load_equipment_banks()
+        self.item_factories = load_items()
         self.running = True
 
     # -------------
@@ -205,7 +207,8 @@ class GameLoop:
         if a == SectionType.SUPPLY:
             pool.remove(SectionType.SUPPLY)
             b = self._rng_choice(pool)
-        b = self._rng_choice([t for t in pool if t != a])  # <-- toujours différent
+        else:
+            b = self._rng_choice([t for t in pool if t != a])
         return [self._make_section(zone, a), self._make_section(zone, b)]
 
     def _generate_boss_section(self, zone: Zone) -> Section:
@@ -321,6 +324,9 @@ class GameLoop:
         if victory:
             g = self._gold_reward_for(enemy, is_boss=getattr(enemy, "is_boss", False))
             self._grant_gold(g)
+            drops = self._roll_item_drops(enemy, is_boss=getattr(enemy, "is_boss", False))
+            if drops:
+                self._grant_items(drops)
         if self.io:
             self.io.on_battle_end(self.player, enemy, victory=(self.player.hp > 0 and enemy.hp <= 0))
     
@@ -355,17 +361,23 @@ class GameLoop:
         return ("attack", atks[0] if atks else Attack(name="Attaque", base_damage=5, variance=2, cost=0))
 
     def _select_enemy_attack(self, enemy: Enemy) -> Attack:
-        if getattr(enemy, "attacks", None):
-            atks = enemy.attacks; ws = getattr(enemy, "attack_weights", [1]*len(atks))
-            pairs = list(zip(atks, ws))
-            total = sum(ws)
-            r = self.rng.uniform(0, total); acc = 0.0
-            for atk, w in pairs:
-                acc += w
-                if r <= acc:
-                    return atk
-            return atks[-1]
-        return Attack(name="Coup maladroit", base_damage=4, variance=2, cost=0)
+        atks = list(enemy.attacks or [])
+        if not atks:
+            return Attack(name="Coup maladroit", base_damage=4, variance=2, cost=0)
+        ai = enemy.behavior_ai
+        if ai is not None:
+            try:
+                return ai.choose(enemy=enemy, player=self.player, attacks=atks, rng=self.rng)
+            except Exception:
+                pass
+        # Fallback au cas où (aléatoire pondéré)
+        ws = getattr(enemy, "attack_weights", [1]*len(atks))
+        total = sum(ws); r =self.rng.uniform(0, total); acc = 0.0
+        for atk, w in zip(atks, ws):
+            acc += w
+            if r <= acc:
+                return atk
+        return atks[-1]
     
     def _use_item_in_combat(self, item_id: str) -> CombatResult:
         events: list[CombatEvent] = []
@@ -665,6 +677,111 @@ class GameLoop:
         if self.io:
             self.io.present_text(f"+{amount} or ramassé.")
     
+    def _roll_item_drops(self, enemy: Enemy, is_boss: bool) -> list[tuple[str, int]]:
+        """
+        Retourne une liste de (item_id, qty) à drop.
+        Priorité:
+        1) Si le blueprint de l'ennemi fournit des drops → on respecte.
+        2) Sinon fallback simple: petites/moyennes/grandes potions avec proba selon zone.level.
+        """
+        drops: list[tuple[str, int]] = []
+
+        # 1) Drops définis sur le blueprint de l'ennemi (optionnel)
+        eid = getattr(enemy, "enemy_id", None)
+        bp = self.enemy_blueprints.get(eid) if eid and hasattr(self, "enemy_blueprints") else None
+        if bp and hasattr(bp, "drops") and isinstance(bp.drops, dict):
+            # format attendu (optionnel) :
+            # bp.drops = {"items":[{"id":"potion_hp_s","w":3,"qty":[1,2]}, ...]}
+            items = list(getattr(bp.drops, "get", lambda k, d=[]: d)("items", [])) if isinstance(bp.drops, dict) else []
+            total_w = sum(int(r.get("w", 1)) for r in items) or 0
+            if total_w > 0:
+                # 1 tirage garanti; boss → 2 tirages
+                pulls = 2 if is_boss else 1
+                for _ in range(pulls):
+                    r = self.rng.uniform(0, total_w)
+                    acc = 0
+                    chosen = None
+                    for row in items:
+                        acc += int(row.get("w", 1))
+                        if r <= acc:
+                            chosen = row; break
+                    if chosen:
+                        qlo, qhi = (1, 1)
+                        q = chosen.get("qty")
+                        if isinstance(q, (list, tuple)) and len(q) == 2:
+                            qlo, qhi = int(q[0]), int(q[1])
+                        qty = max(1, int(self.rng.randint(qlo, qhi)))
+                        drops.append((str(chosen.get("id")), qty))
+            return drops
+
+        # 2) Fallback global basé sur items.json (aucune config ennemi)
+        _IF = (self.item_factories or {})
+        available = [iid for iid in _IF.keys()
+                     if iid in ("potion_hp_s","potion_sp_s","potion_hp_m","potion_sp_m","potion_hp_l","potion_sp_l")]
+        if not available:
+            return drops
+
+        lvl = getattr(self.zone, "level", 1)
+        # Probabilité de drop brut (au moins un item)
+        # ↑ avec le niveau; typiquement 35% + 3% * (lvl-1), borné 20–70%
+        p_any = min(0.70, max(0.20, 0.35 + 0.03*(lvl-1)))
+        if self.rng.random() > p_any and not is_boss:
+            return drops
+
+        # Pondérations par "taille" de potion
+        # petites ≫ moyennes ≫ grandes ; augmente légèrement avec lvl
+        w_small  = 70 + 2*(lvl-1)   # s
+        w_medium = 25 + 1*(lvl-1)   # m
+        w_large  = 5 + (lvl//5)     # l
+        weights = {
+            "potion_hp_s": w_small, "potion_sp_s": w_small,
+            "potion_hp_m": w_medium,"potion_sp_m": w_medium,
+            "potion_hp_l": w_large, "potion_sp_l": w_large,
+        }
+        # 1 tirage de base, boss → 2 tirages
+        pulls = 2 if is_boss else 1
+        for _ in range(pulls):
+            total = sum(weights.get(i,1) for i in available)
+            r = self.rng.uniform(0, total)
+            acc = 0
+            choice = None
+            for iid in available:
+                acc += weights.get(iid,1)
+                if r <= acc:
+                    choice = iid; break
+            if choice:
+                # qty: petites 1–2, moyennes 1, grandes 1 (rarement 2 si lvl élevé)
+                if choice.endswith("_s"):
+                    qty = 1 if self.rng.random() < 0.5 else 2
+                elif choice.endswith("_m"):
+                    qty = 1
+                else:  # _l
+                    qty = 2 if lvl >= 10 and self.rng.random() < 0.15 else 1
+                drops.append((choice, qty))
+        return drops
+
+    def _grant_items(self, drops: list[tuple[str, int]]) -> None:
+        """Ajoute les items droppés à l'inventaire + feedback IO."""
+        if not drops: 
+            return
+        added: list[str] = []
+        inv = self.player_inventory
+        for iid, qty in drops:
+                fac = (self.item_factories or {}).get(iid)
+                if not fac:
+                    continue
+                try:
+                    inst = fac()
+                    inv.add_item(inst, qty)
+                    added.append(f"{qty}× {getattr(inst, 'name', iid)}")
+                except Exception:
+                    # On ignore un échec d’ajout ponctuel (capacité pleine, etc.)
+                    pass
+        if added and self.io:
+            self.io.present_text("Butin: " + ", ".join(added) + ".")
+
+
+
     def _is_allowed(self, offer: ShopOffer) -> bool:
         """Filtre d'offres du shop selon l'état de la partie."""
         # exemple: on n’affiche pas le parchemin de classe si le joueur en a déjà une

@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "player": {
+    "name": "Testeur",
+    "class_key": "guerrier",
+    "base_stats": {
+      "attack": 33,
+      "defense": 14,
+      "luck": 2,
+      "crit_multiplier": 2.0
+    },
+    "hp": {
+      "current": 45,
+      "maximum": 45
+    },
+    "sp": {
+      "current": 10,
+      "maximum": 10
+    }
+  },
+  "wallet": {
+    "gold": 50
+  },
+  "zone": {
+    "type": "RUINS",
+    "level": 2,
+    "explored": 0
+  },
+  "equipment": {
+    "weapon": {
+      "name": "Glaive rouillé",
+      "description": "Un glaive générique rouillé par le sang et le temps",
+      "durability": {
+        "current": 100,
+        "maximum": 100
+      },
+      "kind": "weapon",
+      "bonus_attack": 5
+    },
+    "armor": {
+      "name": "Corp nu",
+      "description": "Armure de dernier recourt",
+      "durability": {
+        "current": 1,
+        "maximum": 1
+      },
+      "kind": "armor",
+      "bonus_defense": 0
+    },
+    "artifact": {
+      "name": "Insigne rouillée",
+      "description": "Une insigne générique rouillée par les larmes et le deuil",
+      "durability": {
+        "current": 100,
+        "maximum": 100
+      },
+      "kind": "artifact",
+      "atk_pct": 0.0,
+      "def_pct": 0.0,
+      "lck_pct": 0.0
+    }
+  },
+  "inventory": {
+    "items": [],
+    "equipment": [],
+    "capacity": 12
+  },
+  "effects": [],
+  "loadout": {
+    "primary": "Frapper",
+    "skill": "Brise-garde",
+    "utility": "Charge",
+    "class_attack_unlocked": false
+  },
+  "rng_seed": null
+}
