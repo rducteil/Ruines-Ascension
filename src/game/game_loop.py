@@ -366,6 +366,11 @@ class GameLoop:
             drops = self._roll_item_drops(enemy, is_boss=getattr(enemy, "is_boss", False))
             if drops:
                 self._grant_items(drops)
+
+            eqs = self._roll_equipment_drop(is_boss=getattr(enemy, "is_boss", False))
+            if eqs:
+                self._grant_equipment(eqs)
+
         if self.io:
             self.io.on_battle_end(self.player, enemy, victory=(self.player.hp > 0 and enemy.hp <= 0))
     
@@ -556,6 +561,20 @@ class GameLoop:
                         self.io.present_events(CombatResult(events=res.events, attacker_alive=True, defender_alive=True, damage_dealt=0, was_crit=False))
                     break
                 elif action == "SHOP":
+                    stock = self._build_shop_stock(lvl=self.zone.level, zone=self.zone)
+                    # 2) afficher le stock (si tu veux une preview rapide)
+                    if self.io:
+                        if stock["items"]:
+                            self.io.present_text("— Boutique (Objets) —")
+                            for iid, price, qty in stock["items"]:
+                                self.io.present_text(f"  {iid}  x{qty}  — {price} or")
+                        if stock["equip"]:
+                            self.io.present_text("— Boutique (Équipement) —")
+                            for i, (eq, price) in enumerate(stock["equip"], 1):
+                                self.io.present_text(f"  [{i}] [{eq.slot}] {eq.name} — {price} or — {eq.get_info()}")
+
+                    # 3) laisser l’IO choisir (implémente une méthode choose_shop_from_stock si tu veux)
+                    purchase = None
                     # laisser l’IO sélectionner une offre + quantité
                     if hasattr(self.io, "choose_shop_purchase"):
                         choice = self.io.choose_shop_purchase(offers, wallet=self.wallet)
@@ -838,6 +857,59 @@ class GameLoop:
                 drops.append((choice, qty))
         return drops
 
+    def _roll_equipment_drop(self, *, is_boss: bool) -> list:
+        """Retourne une liste d'objets Equipment (instances) à ajouter à l'inventaire."""
+        banks = (self.weapon_bank, self.armor_bank, self.artifact_bank)
+        zone: ZoneType  = getattr(self.zone, "zone_type", None)
+        lvl   = getattr(self.zone, "level", 1)
+        tier  = max(1, min(5, round((lvl+1)/2)))
+        is_forced = False
+
+        # pitié / boss
+        streak = getattr(self, "_no_equip_streak", 0)
+        if is_boss:
+            pulls = 1
+            is_forced = True
+        else:
+            base_p = min(0.40, max(0.08, 0.08 + 0.02*(lvl-1)))
+            if streak >= 6:
+                is_forced = True
+            pulls = 1 if (is_forced or self.rng.random() < base_p) else 0
+
+        drops = []
+        for _ in range(pulls):
+            pool = []
+            for bank in banks:
+                for proto in bank:
+                    # filtres doux: tier +-1, zones si définies
+                    ok_tier = abs(getattr(proto, "tier", tier) - tier) <= 1
+                    zs = set(getattr(proto, "zones", []) or [])
+                    ok_zone = (not zs) or (zone and zone.name in zs)
+                    if ok_tier and ok_zone:
+                        pool.append(proto)
+            if not pool:
+                continue
+            proto = self.rng.choice(pool)
+            # instancier une COPIE (pas l’objet banque)
+            inst = proto.clone() if hasattr(proto, "clone") else type(proto)(**proto.to_ctor_args())
+            drops.append(inst)
+
+        # MAJ pitié
+        setattr(self, "_no_equip_streak", 0 if drops else streak+1)
+        return drops
+
+    def _grant_equipment(self, eq_list: list) -> None:
+        inv = self.player_inventory
+        added = []
+        for e in (eq_list or []):
+            try:
+                inv.add_equipment(e)
+                added.append(f"[{getattr(e,'slot','?')}] {getattr(e,'name','?')}")
+            except Exception:
+                pass
+        if added and self.io:
+            self.io.present_text("Butin (équipement): " + ", ".join(added) + ".")
+
     def _grant_items(self, drops: list[tuple[str, int]]) -> None:
         """Ajoute les items droppés à l'inventaire + feedback IO."""
         if not drops: 
@@ -888,6 +960,60 @@ class GameLoop:
         self.wallet.add(revenue)
         return (True, f"Vendu {removed}× {sample.name} pour {revenue} or.")
 
+    def _build_shop_stock(self, *, lvl: int, zone: Zone) -> dict:
+        """
+        Retourne {"items":[(id,price,qty)], "equip":[(Equipment, price)]}.
+        Prix = base_price * coeff (tier/rareté); qty = 1-3 pour consommables.
+        """
+        factories = getattr(self, "item_factories", {}) or {}
+        items = []
+
+        # Items: privilégie ceux dont zones contient la zone courante
+        cand = []
+        for iid, fac in factories.items():
+            try:
+                sample = fac()
+                zs = set(getattr(sample, "zones", []) or [])
+                tier = int(getattr(sample, "tier", 1))
+                w = int(getattr(sample, "shop_weight", 1))
+                ok_zone = (not zs) or (zone and zone.zone_type.name in zs)
+                if ok_zone and abs(tier - round((lvl+1)/2)) <= 1:
+                    cand.append((iid, sample, w))
+            except Exception:
+                continue
+        # 4 items max
+        for _ in range(min(4, len(cand))):
+            total = sum(w for _,_,w in cand)
+            r = self.rng.uniform(0, total); acc = 0
+            for i,(iid,s,w) in enumerate(cand):
+                acc += w
+                if r <= acc:
+                    price = max(1, int(getattr(s, "base_price", 10) * (1.0 + 0.1*lvl)))
+                    qty = 1 if s.stackable is False else self.rng.randint(1, 3)
+                    items.append((iid, price, qty))
+                    cand.pop(i)  # éviter doublon
+                    break
+
+        # Équipements (2 slots max): filtrés par zone/tier
+        eqs = []
+        bank_all = list(self.weapon_bank) + list(self.armor_bank) + list(self.artifact_bank)
+        pool = []
+        for proto in bank_all:
+            zs = set(getattr(proto, "zones", []) or [])
+            ok_zone = (not zs) or (zone and zone.zone_type.name in zs)
+            t = int(getattr(proto, "tier", 1))
+            if ok_zone and abs(t - round((lvl+1)/2)) <= 1:
+                pool.append(proto)
+        for _ in range(min(2, len(pool))):
+            p = self.rng.choice(pool)
+            inst = p.clone() if hasattr(p, "clone") else type(p)(**p.to_ctor_args())
+            base = int(getattr(inst, "base_price", 50) or 50)
+            # pricing léger : +25% par tier au-dessus de 1
+            price = int(base * (1.0 + 0.25*(int(getattr(inst,"tier",1))-1)))
+            eqs.append((inst, price))
+            pool.remove(p)
+
+        return {"items": items, "equip": eqs}
 
     def _player_sheet(self, enemy: Enemy | None = None) -> str:
         """Construit un petit résumé: stats, attaques dispo (avec estimation), équipement."""
@@ -933,7 +1059,6 @@ class GameLoop:
             pass
 
         return "\n".join(lines)
-
 
     def _is_allowed(self, offer: ShopOffer) -> bool:
         """Filtre d'offres du shop selon l'état de la partie."""

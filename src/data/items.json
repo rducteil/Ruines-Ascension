@@ -1,8 +1,78 @@
-[
-    {"item_id": "potion_hp_s", "name": "Petite potion de soin", "base_price": 10},
-    {"item_id": "potion_sp_s", "name": "Petite potion d’endurance", "base_price": 12},
-    {"item_id": "potion_hp_m", "name": "Moyenne potion de soin", "base_price": 20},
-    {"item_id": "potion_sp_m", "name": "Moyenne potion d’endurance", "base_price": 25},
-    {"item_id": "potion_hp_l", "name": "Grande potion de soin", "base_price": 40},
-    {"item_id": "potion_sp_l", "name": "Grande potion d’endurance", "base_price": 50}
-]
+{
+  "potion_hp_s": {
+    "name":"Petite potion de soin",
+    "base_price":10,
+    "stackable":true,
+    "max_stack":100,
+    "use":{"type":"heal_hp", "amount":20}
+    },
+  "potion_sp_s": {
+    "name":"Petite potion d’énergie",
+    "base_price":12,
+    "stackable":true,
+    "max_stack":100,
+    "use":{"type":"heal_sp","amount":10}
+    },
+  "potion_hp_m": {
+    "name":"Petite potion de soin",
+    "base_price":20,
+    "stackable":true,
+    "max_stack":50,
+    "use":{"type":"heal_hp","amount":50}
+    },  
+  "potion_sp_m": {
+    "name":"Petite potion d’énergie",
+    "base_price":25,
+    "stackable":true,
+    "max_stack":50,
+    "use":{"type":"heal_sp","amount":25}
+    },
+  "potion_hp_l": {
+    "name":"Petite potion de soin",
+    "base_price":40,
+    "stackable":true,
+    "max_stack":10,
+    "use":{"type":"heal_hp","amount":120}
+    },
+  "potion_sp_l": {
+    "name":"Petite potion d’énergie",
+    "base_price":50,
+    "stackable":true,
+    "max_stack":10,
+    "use":{"type":"heal_sp","amount":60}
+    },
+  "antidote":    {
+    "name":"Antidote",
+    "base_price":18,
+    "stackable":true,
+    "use":{"type":"cure_poison"}
+    },
+  "whetstone":   {
+    "name":"Pierre d’affûtage",
+    "base_price":25,
+    "stackable":true,
+    "max_stack":10,
+    "use":{"type":"repair_equipment","target":"weapon","amount":10}
+    },
+  "needle_thread":{
+    "name":"Kit de raccommodage",
+    "base_price":25,
+    "stackable":true,
+    "max_stack":10,
+    "use":{"type":"repair_equipment","target":"armor","amount":10}
+    },
+  "elixir_focus":{
+    "name":"Élixir de Ferveur",
+    "base_price":40,
+    "stackable":true,
+    "max_stack":10,
+    "use":{"type":"buff_attack_pct","amount":0.25,"duration":2}
+    },
+  "smoke_bomb":  {
+    "name":"Bombe fumigène",
+    "base_price":30,
+    "stackable":true,
+    "max_stack":3,
+    "use":{"type":"smoke_escape","chance":0.5}
+    }
+}

@@ -11,10 +11,11 @@ Fichiers attendus (dans src/data/ ou mods/env):
 """
 
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, TYPE_CHECKING
 import json
 from pathlib import Path
 from copy import deepcopy
+import random
 
 from core.data_paths import default_data_dirs
 from core.attack import Attack
@@ -30,6 +31,8 @@ from core.equipment import Weapon, Armor, Artifact
 from core.equipment_set import EquipmentSet
 from core.combat import CombatEvent
 from core.behavior import BEHAVIOR_REGISTRY
+if TYPE_CHECKING:
+    from core.player import Player
 
 
 # ---------- Helpers JSON ----------
@@ -189,9 +192,14 @@ class DataConsumable(Consumable):
         super().__init__(item_id=item_id, name=name, description=description, max_stack=max_stack)
         self._payload = dict(payload or {})
 
-    def on_use(self, user, ctx=None):
+    def on_use(self, user: Player, ctx=None):
         t = self._payload.get("type")
         evs: list[CombatEvent] = []
+        gm = getattr(ctx, "effect_manager", None) if ctx else None
+        rng = getattr(getattr(ctx, "engine", None), "rng", None) if ctx else None
+        if gm is None and ctx is not None:
+            gm = getattr(ctx, "effects", None)
+        
         if t == "heal_hp":
             amt = int(self._payload.get("amount", 0))
             healed = user.heal_hp(amt)
@@ -200,6 +208,60 @@ class DataConsumable(Consumable):
             amt = int(self._payload.get("amount", 0))
             restored = user.heal_sp(amt)
             evs.append(CombatEvent(text=f"{user.name} récupère {restored} SP.", tag="use_heal_sp", data={"amount": restored}))
+        elif t == "cure_poison":
+            try:
+                if isinstance(gm, EffectManager):
+                    removed = gm.purge(user, cls_name="PoisonEffect")  # ou effect_id="poison"
+                else:
+                    # fallback: rien si pas de manager
+                    removed = 0
+                if removed:
+                    evs.append(CombatEvent(text=f"{user.name} est purgé du poison.", tag="use_cure_poison"))
+                else:
+                    evs.append(CombatEvent(text="Aucun poison à purger.", tag="use_cure_poison_none"))
+            except Exception:
+                evs.append(CombatEvent(text="L’antidote n’a eu aucun effet.", tag="use_cure_poison_error"))
+        elif t == "buff_attack_pct":
+            # Applique un buff %ATK pour N tours via effects_bank
+            amt = float(self._payload.get("amount", 0.0))
+            dur = int(self._payload.get("duration", 1))
+            try:
+                eff = make_effect("atk_pct_buff", duration=dur, potency=amt)
+                if isinstance(gm, EffectManager):
+                    gm.apply(user, eff, source_name=f"item:{self.item_id}", ctx=ctx)
+                else:
+                    eff.on_apply(user, ctx)  # fallback
+                evs.append(CombatEvent(text=f"{user.name} sent sa force croître (+{int(amt*100)}% ATK, {dur} tour(s)).", tag="use_buff_atk"))
+            except Exception:
+                evs.append(CombatEvent(text="L’élixir pétille sans effet.", tag="use_buff_atk_fail"))
+
+        elif t == "repair_equipment":
+            # Répare weapon/armor de 'amount' points (si durabilité existe)
+            target = str(self._payload.get("target", "weapon")).strip().lower()
+            amount = int(self._payload.get("amount", 10))
+            try:
+                eq = user.equipment.get(target)
+            except Exception:
+                eq = getattr(getattr(user, "equipment", None), target, None)
+            if not eq or not hasattr(eq, "durability"):
+                evs.append(CombatEvent(text="Rien à réparer.", tag="use_repair_none"))
+            else:
+                cur = getattr(eq.durability, "current", 0)
+                mx  = getattr(eq.durability, "maximum", cur)
+                new = min(mx, cur + amount)
+                setattr(eq.durability, "current", new)
+                evs.append(CombatEvent(text=f"{eq.name} réparée (+{new-cur}).", tag="use_repair", data={"restored": new-cur}))
+
+        elif t == "smoke_escape":
+            # Chance de fuir: termine le combat si succès
+            p = float(self._payload.get("chance", 0.5))
+            roll = (rng.random() if rng else random.random())
+            if roll < p:
+                evs.append(CombatEvent(text="Vous profitez de la fumée pour vous éclipser !", tag="use_escape", data={"success": True}))
+                # signaler une fin de combat via un champ que ta boucle comprend
+                evs[-1].end_combat = True
+            else:
+                evs.append(CombatEvent(text="La fumée se dissipe trop vite...", tag="use_escape", data={"success": False}))
         elif t == "apply_effect":
             eid = self._payload.get("effect_id")
             dur = int(self._payload.get("duration", 0))
@@ -225,23 +287,55 @@ def load_items() -> dict[str, Callable[[], DataConsumable]]:
     """Charge items.json et retourne un factory dict {item_id: callable()->Consumable}."""
     raw = _read_json_first("items.json")
     res: dict[str, Any] = {}
-    if isinstance(raw, list):
-        for row in raw:
-            try:
-                item_id = row["item_id"]
-                name = row["name"]
-                desc = row.get("description", "")
-                stackable = bool(row.get("stackable", True))
-                max_stack = int(row.get("max_stack", 99))
-                use_payload = dict(row.get("use", {}))
-                if not stackable:
-                    # Pour l’instant, on ne gère que les consommables data-driven
-                    continue
-                def _factory(_id=item_id, _n=name, _d=desc, _m=max_stack, _p=use_payload):
-                    return DataConsumable(item_id=_id, name=_n, description=_d, max_stack=_m, payload=_p)
-                res[item_id] = _factory
-            except Exception:
+    rows: list[dict] = []
+
+    if isinstance(raw, dict):
+        for iid, row in raw.items():
+            r = dict(row); r["item_id"] = iid
+            rows.append(r)
+    elif isinstance(raw, list):
+        rows = raw
+    else:
+        return res
+
+    for row in rows:
+        try:
+            item_id = row["item_id"]
+            name = row.get("name", item_id)
+            desc = row.get("description", "")
+            stackable = row.get("stackable", True)
+            max_stack = int(row.get("max_stack", 99))
+            if isinstance(stackable, int):
+                max_stack = int(stackable)
+                stackable = True
+
+            use_payload = dict(row.get("use", {}))
+
+            tier = int(row.get("tier", row.get("tiers", 1)))
+            tags = list(row.get("tags", row.get("tag", [])) or [])
+            zones = [str(z).upper() for z in (row.get("zones", []) or [])]
+            shop_w = int(row.get("shop_weight", 1))
+            drop_w = int(row.get("drop_weight", 1))
+            base_price = int(row.get("base_price", 0))
+
+            if not stackable:
                 continue
+
+            def _factory(_id=item_id, _n=name, _d=desc, _m=max_stack, _p=use_payload,
+                         _tier=tier, _tags=tags, _zones=zones, _sw=shop_w, _dw=drop_w, _bp=base_price):
+                it = DataConsumable(item_id=_id, name=_n, description=_d, max_stack=_m, payload=_p)
+                setattr(it, "tier", _tier)
+                setattr(it, "tags", _tags)
+                setattr(it, "zones", _zones)
+                setattr(it, "shop_weight", _sw)
+                setattr(it, "drop_weight", _dw)
+                setattr(it, "base_price", _bp)
+                setattr(it, "stackable", True)
+                return it
+
+            res[item_id] = _factory
+        except Exception:
+            continue
     return res
 
 def load_shop_offers() -> tuple[list[ShopOffer], dict[str, int]]:
@@ -453,17 +547,35 @@ def load_equipment_zone_index() -> dict[str, dict[str, list[str]]]:
                 pass
     return out
 
-def load_equipment_banks() -> tuple[dict[str, Callable[[], Weapon]],
-                                    dict[str, Callable[[], Armor]],
-                                    dict[str, Callable[[], Artifact]]]:
-    """Lit src/data/equipment/*.json et retourne 3 factories {id: ()->instance}."""
+def load_equipment_banks() -> tuple[list[Weapon], list[Armor], list[Artifact]]:
+    """Lit src/data/equipment/*.json et retourne 3 LISTES de prototypes (instances) avec méta + clone()."""
     from core.data_paths import default_data_dirs
     from pathlib import Path
     import json
 
-    w_fact: dict[str, Callable[[], Weapon]] = {}
-    a_fact: dict[str, Callable[[], Armor]] = {}
-    r_fact: dict[str, Callable[[], Artifact]] = {}
+    w_protos: list[Weapon] = []
+    a_protos: list[Armor] = []
+    r_protos: list[Artifact] = []
+
+    def _attach_meta(inst, row: dict):
+        # métadonnées optionnelles utilisées par shop/drops/filtrage
+        setattr(inst, "tier", int(row.get("tier", row.get("tiers", 1))))
+        setattr(inst, "tags", list(row.get("tags", row.get("tag", [])) or []))
+        setattr(inst, "zones", [str(z).upper() for z in (row.get("zones", []) or [])])
+        setattr(inst, "base_price", int(row.get("base_price", 50)))
+        # méthode clone (ferme sur les args du constructeur)
+        if not hasattr(inst, "clone"):
+            ctor = type(inst)
+            if isinstance(inst, Weapon):
+                args = dict(name=inst.name, durability_max=inst.durability.maximum, bonus_attack=inst.bonus_attack, description=getattr(inst, "description", ""))
+            elif isinstance(inst, Armor):
+                args = dict(name=inst.name, durability_max=inst.durability.maximum, bonus_defense=inst.bonus_defense, description=getattr(inst, "description", ""))
+            else:  # Artifact
+                args = dict(name=inst.name, durability_max=inst.durability.maximum, atk_pct=inst.atk_pct, def_pct=inst.def_pct, lck_pct=getattr(inst, "lck_pct", 0.0), description=getattr(inst, "description", ""))
+            def _clone(_ctor=ctor, _args=args):
+                return _ctor(**_args)
+            setattr(inst, "clone", _clone)
+        return inst
 
     for base in default_data_dirs():
         eqdir = Path(base) / "equipment"
@@ -476,12 +588,12 @@ def load_equipment_banks() -> tuple[dict[str, Callable[[], Weapon]],
             try:
                 rows = json.loads(wpath.read_text(encoding="utf-8"))
                 for row in rows:
-                    wid = row["id"]; name = row.get("name", wid)
+                    name = row.get("name", row.get("id", "weapon"))
                     dmax = int(row.get("durability_max", 10))
                     batk = int(row.get("bonus_attack", 0))
-                    def _wf(_name=name, _dmax=dmax, _batk=batk):
-                        return Weapon(name=_name, durability_max=_dmax, bonus_attack=_batk)
-                    w_fact[wid] = _wf
+                    desc = row.get("description", "")
+                    inst = Weapon(name=name, durability_max=dmax, bonus_attack=batk, description=desc)
+                    w_protos.append(_attach_meta(inst, row))
             except Exception:
                 pass
 
@@ -491,12 +603,12 @@ def load_equipment_banks() -> tuple[dict[str, Callable[[], Weapon]],
             try:
                 rows = json.loads(apath.read_text(encoding="utf-8"))
                 for row in rows:
-                    aid = row["id"]; name = row.get("name", aid)
+                    name = row.get("name", row.get("id", "armor"))
                     dmax = int(row.get("durability_max", 12))
                     bdef = int(row.get("bonus_defense", 0))
-                    def _af(_name=name, _dmax=dmax, _bdef=bdef):
-                        return Armor(name=_name, durability_max=_dmax, bonus_defense=_bdef)
-                    a_fact[aid] = _af
+                    desc = row.get("description", "")
+                    inst = Armor(name=name, durability_max=dmax, bonus_defense=bdef, description=desc)
+                    a_protos.append(_attach_meta(inst, row))
             except Exception:
                 pass
 
@@ -506,14 +618,15 @@ def load_equipment_banks() -> tuple[dict[str, Callable[[], Weapon]],
             try:
                 rows = json.loads(rpath.read_text(encoding="utf-8"))
                 for row in rows:
-                    rid = row["id"]; name = row.get("name", rid)
+                    name = row.get("name", row.get("id", "artifact"))
                     dmax = int(row.get("durability_max", 8))
-                    atk_pct = float(row.get("atk_pct", 0.0))
-                    def_pct = float(row.get("def_pct", 0.0))
-                    def _rf(_name=name, _dmax=dmax, _ap=atk_pct, _dp=def_pct):
-                        return Artifact(name=_name, durability_max=_dmax, atk_pct=_ap, def_pct=_dp)
-                    r_fact[rid] = _rf
+                    ap = float(row.get("atk_pct", 0.0))
+                    dp = float(row.get("def_pct", 0.0))
+                    lp = float(row.get("lck_pct", 0.0))
+                    desc = row.get("description", "")
+                    inst = Artifact(name=name, durability_max=dmax, atk_pct=ap, def_pct=dp, lck_pct=lp, description=desc)
+                    r_protos.append(_attach_meta(inst, row))
             except Exception:
                 pass
 
-    return w_fact, a_fact, r_fact
+    return w_protos, a_protos, r_protos

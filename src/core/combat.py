@@ -23,6 +23,7 @@ class CombatEvent:
     text: str
     tag: str | None = None
     data: dict[str, Any] | None = None
+    end_combat: bool = False
 
 @dataclass
 class CombatResult:
@@ -89,12 +90,22 @@ class CombatEngine:
         variance = int(attack.variance)
         delta = self.rng.randint(-variance, variance) if variance > 0 else 0
 
+        # Stats effectives
         eff_atk = self._effective_attack(attacker)
         eff_def = self._effective_defense(defender)
-        eff_def = int(round(eff_def * (1.0 - attack.ignore_defense_pct)))
 
-        raw = max(0, base_damage + delta + eff_atk - eff_def)
-        raw += attack.true_damage
+        # Mitigation douce (def/(def+K))
+        K = 45.0
+        mitigation = eff_def / (eff_def + K) if eff_def > 0 else 0.0
+        dmg_core = max(0, base_damage + delta + eff_atk)
+        dmg_post_def = int(round(dmg_core * (1.0 - mitigation)))
+
+        ignore = float(getattr(attack, "ignore_defnse_pct", 0.0))
+        if ignore > 0:
+            regained = int(round(dmg_post_def * mitigation * ignore))
+            dmg_post_def += regained
+
+        raw = max(1, dmg_post_def + int(getattr(attack, "true_damage", 0)))
 
         # 3) Critique éventuel (basé sur luck)
         was_crit = self._roll_crit(attacker.base_stats.luck)
@@ -150,16 +161,28 @@ class CombatEngine:
         mod : StatPercentMod = art.stat_percent_mod()
         return float(getattr(mod, f"{which}_pct", 0.0))
     
-    def estimate_damage(self, attacker, defender, attack) -> tuple[int, int]:
+    def estimate_damage(self, attacker, defender, attack: Attack) -> tuple[int, int]:
         if getattr(attack, "deals_damage", True) is False:
             return (0, 0)
         base = int(attack.base_damage)
         var  = int(attack.variance)
         eff_atk = self._effective_attack(attacker)
-        eff_def = int(round(self._effective_defense(defender) * (1.0 - attack.ignore_defense_pct)))
-        lo = max(0, base - var + eff_atk - eff_def) + attack.true_damage
-        hi = max(0, base + var + eff_atk - eff_def) + attack.true_damage
+        eff_def = self._effective_defense(defender)
+        K = 45.0
+        mitigation = eff_def / (eff_def + K) if eff_def > 0 else 0.0
+        ignore = float(getattr(attack, "ignore_defense_pct", 0.0))
+
+        def _one(x):
+            dmg_core = max(0, (base + x) + eff_atk)
+            dmg_post = int(round(dmg_core * (1.0 - mitigation)))
+            if ignore > 0:
+                dmg_post += int(round(dmg_core * mitigation * ignore))
+            return max(1, dmg_post + int(getattr(attack, "true_damage", 0)))
+
+        lo = _one(-var)
+        hi = _one(+var)
         return (lo, hi)
+
 
     # ---------- Critique ----------
 
