@@ -24,7 +24,7 @@
       "name": "Rayon mystique",
       "base_damage": 10,
       "variance": 6,
-      "cost": 16,
+      "cost": 18,
       "true_damage": 5
     },
     "base_equip":{

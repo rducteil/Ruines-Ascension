@@ -1,9 +1,10 @@
 from core.player import Player
-from content.player_classes import CLASSES
-from core.equipment import Weapon, Armor, Artifact
+from core.data_loader import load_player_classes, load_equipment_banks
+from core.equipment import Equipment
+from core.stats import Stats
 
-# Crée un joueur de classe Arpenteur
-player = Player("Elyon", "arpenteur")
+CLASSES = load_player_classes()
+player = Player("Elyon", "arpenteur", base_stats=Stats(8, 4, 2, 2.0), base_hp_max=35, base_sp_max=15)
 
 # Affiche ses stats de base
 print("Avant équipement :")
@@ -12,9 +13,10 @@ player.print_equipment()
 print()
 
 # Crée des équipements
-sword = Weapon("Épée rouillée", durability=10, bonus_attack=15)
-shield = Armor("Bouclier usé", durability=20, bonus_defense=10)
-charm = Artifact("Porte-bonheur", {"luck": +5, "base_endurance": +10})
+weapon_bank, armor_bank, artifact_bank = load_equipment_banks()
+sword = next(iter(weapon_bank.values())).clone()
+shield = next(iter(armor_bank.values())).clone()
+charm = next(iter(artifact_bank.values())).clone()
 
 # Applique les équipements
 player.equip(sword, "weapon")
@@ -27,7 +29,7 @@ print(player)
 player.print_equipment()
 
 # Remplacement d'arme
-new_sword = Weapon("Sabre d’acier", durability=25, bonus_attack=25)
+new_sword = next(iter(weapon_bank.values())).clone()
 player.equip(new_sword, "weapon")
 
 # Affiche les stats apres changement d'arme

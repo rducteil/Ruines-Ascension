@@ -55,6 +55,7 @@ class CombatEngine:
             _base_crit_mult: float = 2.0
             ):
         self.rng = random.Random(seed)
+        self.mitigation_K = 45.0
         self._base_crit_mult = float(_base_crit_mult)
 
 
@@ -95,7 +96,7 @@ class CombatEngine:
         eff_def = self._effective_defense(defender)
 
         # Mitigation douce (def/(def+K))
-        K = 45.0
+        K = self.mitigation_K
         mitigation = eff_def / (eff_def + K) if eff_def > 0 else 0.0
         dmg_core = max(0, base_damage + delta + eff_atk)
         dmg_post_def = int(round(dmg_core * (1.0 - mitigation)))
@@ -183,6 +184,9 @@ class CombatEngine:
         hi = _one(+var)
         return (lo, hi)
 
+    def set_mitigation_K(self, k: float) -> None:
+        self.mitigation_K = float(k)
+
 
     # ---------- Critique ----------
 
@@ -210,7 +214,6 @@ class CombatEngine:
                 now_broken = getattr(atk_weapon, "is_broken", lambda: False)()
                 if not was_broken and now_broken:
                     events.append(CombatEvent(text=f"L'arme de {attacker.name} se casse !", tag="weapon_broken"))
-
 
     def _wear_after_hit(self, defender: Player | Enemy, ctx: CombatContext, events: list[CombatEvent]) -> None:
         if getattr(defender, "equipment", None):

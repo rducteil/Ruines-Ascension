@@ -27,6 +27,23 @@ class Loadout:
             raise ValueError(f"slot invalide {slot}")    
         setattr(self, slot, attack)
         
+    def clone(self) -> "Loadout":
+        # copie défensive : reconstruit de nouvelles Attack
+        def _copy(a: "Attack") -> "Attack":
+            # On évite deepcopy; Attack(**vars(a)) suffit si Attack est “plat”
+            from core.attack import Attack
+            return Attack(**vars(a))
+        return Loadout(primary=_copy(self.primary),
+                       skill=_copy(self.skill),
+                       utility=_copy(self.utility))
+
+    def set_skill(self, attack: "Attack") -> None:
+        self.skill = attack
+
+    def with_class_attack(self, class_attack: "Attack") -> "Loadout":
+        lo = self.clone()
+        lo.set_skill(class_attack)
+        return lo 
 
 class LoadoutManager:
     """Associe un Loadout à une entité sans modifier Player/Entity."""

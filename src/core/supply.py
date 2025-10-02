@@ -5,9 +5,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from core.combat import CombatEvent
-from content.items import make_item
-from content.actions import with_class_attack        # pour mettre l’attaque de classe dans le loadout
-from content import shop_offers                      # REST/REPAIR defaults
+from core.data_loader import load_items
+REST_HP_PCT = 60
+REST_SP_PCT = 50
+REPAIR_COST_PER_POINT = 3
 
 if TYPE_CHECKING:
     from core.player import Player
@@ -54,9 +55,10 @@ class SupplyManager:
         self.inventory = inventory
         self.wallet = wallet
         self.loadouts = loadouts
+        self._item_factories = load_items()
 
     # --- REST ---
-    def do_rest(self, player: Player, *, hp_pct: int = shop_offers.REST_HP_PCT, sp_pct: int = shop_offers.REST_SP_PCT) -> SupplyResult:
+    def do_rest(self, player: Player, *, hp_pct: int = REST_HP_PCT, sp_pct: int = REST_SP_PCT) -> SupplyResult:
         ev: list[CombatEvent] = []
         healed_hp = player.heal_hp(int(player.max_hp * hp_pct / 100))
         healed_sp = player.heal_sp(int(player.max_sp * sp_pct / 100))
@@ -68,7 +70,7 @@ class SupplyManager:
         return SupplyResult(events=ev)
 
     # --- REPAIR ---
-    def repair_all_you_can_afford(self, player: Player, price_per_point: int = shop_offers.REPAIR_COST_PER_POINT) -> SupplyResult:
+    def repair_all_you_can_afford(self, player: Player, price_per_point: int = REPAIR_COST_PER_POINT) -> SupplyResult:
         ev: list[CombatEvent] = []
         spent = 0
 
@@ -106,7 +108,10 @@ class SupplyManager:
             total = offer.price * qty
             if not self.wallet.spend(total):
                 return SupplyResult(events=[CombatEvent(text="Fonds insuffisants.", tag="shop_fail")], ok=False)
-            added = self.inventory.add_item(make_item(offer.item_id), qty=qty)
+            factory = self._item_factories.get(offer.item_id)
+            if factory is None:
+                return SupplyResult(events=[CombatEvent(text="Item inconnu.", tag="shop_fail")], ok=False)
+            added = self.inventory.add_item(factory(), qty=qty)
             ev.append(CombatEvent(text=f"Achat: {offer.name} x{added} (coût {total} or).", tag="shop_buy"))
             if added < qty:
                 ev.append(CombatEvent(text="Inventaire plein: une partie de l’achat a été perdue.", tag="inv_full"))
@@ -119,19 +124,9 @@ class SupplyManager:
             if not class_key:
                 return SupplyResult(events=[CombatEvent(text="Aucune classe détectée.", tag="shop_fail")], ok=False)
 
-            # Récupère l'attaque de classe depuis le registre (content.player_classes ou core fallback)
-            try:
-                from content.player_classes import CLASSES as PCONTENT
-                pclass = PCONTENT.get(class_key)
-            except Exception:
-                pclass = None
-            if pclass is None:
-                try:
-                    from content.player_classes import CLASSES as PCORE
-                    pclass = PCORE.get(class_key)
-                except Exception:
-                    pclass = None
-            class_attack: Attack = getattr(pclass, "class_attack", None) if pclass else None
+            # Récupère l'attaque de classe directement depuis le player
+            pclass = getattr(player, "player_class", None)
+            class_attack: Attack | None = getattr(pclass, "class_attack", None) if pclass else None
             if class_attack is None:
                 return SupplyResult(events=[CombatEvent(text="Cette classe n’a pas d’attaque de classe définie.", tag="shop_fail")], ok=False)
 
@@ -141,7 +136,7 @@ class SupplyManager:
             lo = self.loadouts.get(player)
             if lo is None:
                 return SupplyResult(events=[CombatEvent(text="Loadout introuvable.", tag="shop_fail")], ok=False)
-            upgraded = with_class_attack(lo, class_attack)
+            upgraded = lo.with_class_attack(class_attack)
             self.loadouts.set(player, upgraded)
             ev.append(CombatEvent(text=f"{player.name} apprend {class_attack.name} !", tag="class_scroll"))
             return SupplyResult(events=ev, spent=offer.price)

@@ -37,9 +37,9 @@ class PlayerClass:
         player.sp_res.set_maximum(player.sp_res.maximum + self.bonus_sp_max, preserve_ratio=True)
 
         # Equip de l'équipement de base
-        player.equipment.replace("weapon", self.class_base_equip.weapon)
-        player.equipment.replace("armot", self.class_base_equip.armor)
-        player.equipment.replace("artifact", self.class_base_equip.artifact)
+        player.equip(self.class_base_equip.weapon)
+        player.equip(self.class_base_equip.armor)
+        player.equip(self.class_base_equip.artifact)
 
         # Si présent, ajoute l'attaque de classe au joueur (pour l'UI)
         if self.class_attack is not None:

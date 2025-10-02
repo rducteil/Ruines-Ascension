@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Literal, TypeAlias
 
 from core.entity import Entity
 from core.player_class import PlayerClass
-from content.player_classes import CLASSES as CLASSES_CONTENT
+from core.data_loader import load_player_classes
 from core.equipment_set import EquipmentSet, NO_EQUIP
 
 if TYPE_CHECKING:
@@ -38,7 +38,11 @@ class Player(Entity):
 
         # Applique bonus de classe (stats + resources + equip) if provided
         self.player_class_key = (player_class_key or "").strip().lower()
-        self.player_class: PlayerClass = CLASSES_CONTENT[player_class_key]
+        _classes = load_player_classes()
+        try:
+            self.player_class: PlayerClass = _classes[self.player_class_key]
+        except KeyError:
+            raise KeyError(f"Classe inconnue: {self.player_class_key}")
         self.player_class.apply_to(self)
         self.class_attack_unlocked: bool = False
 

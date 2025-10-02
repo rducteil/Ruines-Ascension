@@ -4,9 +4,6 @@ from game.game_loop import GameLoop
 from ui.console_io import ConsoleIO
 from typing import TYPE_CHECKING
 
-# registre core + fusion "content" puis "data"
-from content.player_classes import CLASSES as CONTENT_CLASSES
-
 from core.data_loader import load_player_classes, load_attacks, load_loadouts
 from core.loadout import LoadoutManager
 from core.data_loader import load_player_classes
@@ -15,8 +12,7 @@ if TYPE_CHECKING:
     from core.player import Player
     from core.player_class import PlayerClass
     from game.game_loop import GameIO
-CONTENT_CLASSES.update(load_player_classes())
-
+CLASSES = load_player_classes()
 ATTACKS_REG = load_attacks()
 DEFAULT_LOADOUTS = load_loadouts(ATTACKS_REG)
 DEFAULT_LOADOUTS = {str(k).strip().lower(): v for (k, v) in DEFAULT_LOADOUTS.items()}
@@ -51,7 +47,7 @@ def _resolve_loadout_for(player: Player):
 
 def main():
     io = ConsoleIO()
-    class_key = _choose_class_key(CONTENT_CLASSES)
+    class_key = _choose_class_key(CLASSES)
     name = input("Choisi ton nom : ")
     p = Player(
         name=name,

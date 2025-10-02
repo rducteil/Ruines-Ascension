@@ -30,7 +30,6 @@ from core import effects
 from core.player import Player
 from core.attack import Attack
 from core.resource import Resource
-from content.player_classes import CLASSES as CLASS_REG
 from core.inventory import Inventory
 from core.supply import Wallet
 from core.effects import Effect, PoisonEffect, AttackBuffEffect, DefenseBuffEffect, LuckBuffEffect

@@ -570,7 +570,7 @@ def load_equipment_banks() -> tuple[list[Weapon], list[Armor], list[Artifact]]:
                 args = dict(name=inst.name, durability_max=inst.durability.maximum, bonus_attack=inst.bonus_attack, description=getattr(inst, "description", ""))
             elif isinstance(inst, Armor):
                 args = dict(name=inst.name, durability_max=inst.durability.maximum, bonus_defense=inst.bonus_defense, description=getattr(inst, "description", ""))
-            else:  # Artifact
+            elif isinstance(inst, Artifact):
                 args = dict(name=inst.name, durability_max=inst.durability.maximum, atk_pct=inst.atk_pct, def_pct=inst.def_pct, lck_pct=getattr(inst, "lck_pct", 0.0), description=getattr(inst, "description", ""))
             def _clone(_ctor=ctor, _args=args):
                 return _ctor(**_args)

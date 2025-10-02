@@ -1,7 +1,36 @@
 [
-  { "id": "amu_force_I",   "name": "Amulette de force I", "durability_max": 10, "atk_pct": 0.10, "def_pct": 0.0,  "zones": ["RUINS"] },
-  { "id": "amu_protect_I", "name": "Amulette de protection I","durability_max": 10, "atk_pct": 0.0,  "def_pct": 0.10, "zones": ["CAVES"] },
-  { "id": "totem_bois",    "name": "Totem de bois",        "durability_max": 10, "atk_pct": 0.05, "def_pct": 0.05, "zones": ["FOREST"] },
-  { "id": "talisman_chaleur","name":"Talisman de chaleur", "durability_max": 10, "atk_pct": 0.08, "def_pct": 0.0,  "zones": ["DESERT"] },
-  { "id": "bague_mycelium","name": "Bague de mycélium",    "durability_max": 10, "atk_pct": 0.0,  "def_pct": 0.12, "zones": ["SWAMP"] }
+  { "id": "ruins_insignia_t1", "name": "Insigne des ruines I",      "tier": 1, "base_price": 30,  "durability_max": 10, "atk_pct": 0.02, "def_pct": 0.02, "zones": ["RUINS"] },
+  { "id": "caves_amulet_t1",   "name": "Amulette des cavernes I",   "tier": 1, "base_price": 30,  "durability_max": 10, "atk_pct": 0.03, "def_pct": 0.01, "zones": ["CAVES"] },
+  { "id": "forest_totem_t1",   "name": "Totem forestier I",         "tier": 1, "base_price": 30,  "durability_max": 10, "atk_pct": 0.01, "def_pct": 0.03, "zones": ["FOREST"] },
+  { "id": "desert_talisman_t1","name": "Talisman du désert I",      "tier": 1, "base_price": 30,  "durability_max": 10, "atk_pct": 0.03, "def_pct": 0.01, "zones": ["DESERT"] },
+  { "id": "swamp_ring_t1",     "name": "Bague des marais I",        "tier": 1, "base_price": 30,  "durability_max": 10, "atk_pct": 0.01, "def_pct": 0.03, "zones": ["SWAMP"] },
+
+  { "id": "ruins_insignia_t2", "name": "Insigne des ruines II",     "tier": 2, "base_price": 45,  "durability_max": 10, "atk_pct": 0.03, "def_pct": 0.03, "zones": ["RUINS"] },
+  { "id": "caves_amulet_t2",   "name": "Amulette des cavernes II",  "tier": 2, "base_price": 45,  "durability_max": 10, "atk_pct": 0.04, "def_pct": 0.02, "zones": ["CAVES"] },
+  { "id": "forest_totem_t2",   "name": "Totem forestier II",        "tier": 2, "base_price": 45,  "durability_max": 10, "atk_pct": 0.02, "def_pct": 0.04, "zones": ["FOREST"] },
+  { "id": "desert_talisman_t2","name": "Talisman du désert II",     "tier": 2, "base_price": 45,  "durability_max": 10, "atk_pct": 0.04, "def_pct": 0.02, "zones": ["DESERT"] },
+  { "id": "swamp_ring_t2",     "name": "Bague des marais II",       "tier": 2, "base_price": 45,  "durability_max": 10, "atk_pct": 0.02, "def_pct": 0.04, "zones": ["SWAMP"] },
+
+  { "id": "ruins_insignia_t3", "name": "Insigne des ruines III",    "tier": 3, "base_price": 65,  "durability_max": 10, "atk_pct": 0.05, "def_pct": 0.05, "zones": ["RUINS"] },
+  { "id": "caves_amulet_t3",   "name": "Amulette des cavernes III", "tier": 3, "base_price": 65,  "durability_max": 10, "atk_pct": 0.06, "def_pct": 0.04, "zones": ["CAVES"] },
+  { "id": "forest_totem_t3",   "name": "Totem forestier III",       "tier": 3, "base_price": 65,  "durability_max": 10, "atk_pct": 0.04, "def_pct": 0.06, "zones": ["FOREST"] },
+  { "id": "desert_talisman_t3","name": "Talisman du désert III",    "tier": 3, "base_price": 65,  "durability_max": 10, "atk_pct": 0.06, "def_pct": 0.04, "zones": ["DESERT"] },
+  { "id": "swamp_ring_t3",     "name": "Bague des marais III",      "tier": 3, "base_price": 65,  "durability_max": 10, "atk_pct": 0.04, "def_pct": 0.06, "zones": ["SWAMP"] },
+
+  { "id": "ruins_insignia_t4", "name": "Insigne des ruines IV",     "tier": 4, "base_price": 90,  "durability_max": 10, "atk_pct": 0.07, "def_pct": 0.06, "zones": ["RUINS"] },
+  { "id": "caves_amulet_t4",   "name": "Amulette des cavernes IV",  "tier": 4, "base_price": 90,  "durability_max": 10, "atk_pct": 0.08, "def_pct": 0.06, "zones": ["CAVES"] },
+  { "id": "forest_totem_t4",   "name": "Totem forestier IV",        "tier": 4, "base_price": 90,  "durability_max": 10, "atk_pct": 0.06, "def_pct": 0.08, "zones": ["FOREST"] },
+  { "id": "desert_talisman_t4","name": "Talisman du désert IV",     "tier": 4, "base_price": 90,  "durability_max": 10, "atk_pct": 0.08, "def_pct": 0.06, "zones": ["DESERT"] },
+  { "id": "swamp_ring_t4",     "name": "Bague des marais IV",       "tier": 4, "base_price": 90,  "durability_max": 10, "atk_pct": 0.06, "def_pct": 0.08, "zones": ["SWAMP"] },
+
+  { "id": "ruins_insignia_t5", "name": "Insigne des ruines V",      "tier": 5, "base_price": 120, "durability_max": 10, "atk_pct": 0.10, "def_pct": 0.08, "zones": ["RUINS"] },
+  { "id": "caves_amulet_t5",   "name": "Amulette des cavernes V",   "tier": 5, "base_price": 120, "durability_max": 10, "atk_pct": 0.11, "def_pct": 0.09, "zones": ["CAVES"] },
+  { "id": "forest_totem_t5",   "name": "Totem forestier V",         "tier": 5, "base_price": 120, "durability_max": 10, "atk_pct": 0.09, "def_pct": 0.11, "zones": ["FOREST"] },
+  { "id": "desert_talisman_t5","name": "Talisman du désert V",      "tier": 5, "base_price": 120, "durability_max": 10, "atk_pct": 0.11, "def_pct": 0.09, "zones": ["DESERT"] },
+  { "id": "swamp_ring_t5",     "name": "Bague des marais V",        "tier": 5, "base_price": 120, "durability_max": 10, "atk_pct": 0.09, "def_pct": 0.11, "zones": ["SWAMP"] },
+
+  { "id": "token_insignia_t2", "name": "Insigne d’essai II",        "tier": 2, "base_price": 45,  "durability_max": 10, "atk_pct": 0.03, "def_pct": 0.03 },
+  { "id": "token_insignia_t3", "name": "Insigne d’essai III",       "tier": 3, "base_price": 65,  "durability_max": 10, "atk_pct": 0.05, "def_pct": 0.05 },
+  { "id": "token_insignia_t4", "name": "Insigne d’essai IV",        "tier": 4, "base_price": 90,  "durability_max": 10, "atk_pct": 0.07, "def_pct": 0.06 },
+  { "id": "token_insignia_t5", "name": "Insigne d’essai V",         "tier": 5, "base_price": 120, "durability_max": 10, "atk_pct": 0.10, "def_pct": 0.08 }
 ]

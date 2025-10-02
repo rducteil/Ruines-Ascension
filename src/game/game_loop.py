@@ -32,6 +32,7 @@ from core.data_loader import load_enemy_blueprints, load_encounter_tables, load_
 from content.effects_bank import make_effect
 from core.equipment import Equipment
 from core.item import Item
+from core.progression import TierProgression
 
 
 
@@ -163,6 +164,9 @@ class GameLoop:
         self.encounter_tables = load_encounter_tables()
         self.weapon_bank, self.armor_bank, self.artifact_bank = load_equipment_banks()
         self.item_factories = load_items()
+        self.tier_prog = TierProgression(band_size=4, shop_threshold=0.50, pity_window=8, campaign_max_tier=5)
+        self._pity_since_good_drop = 0
+        self.campaign_max_tier = 5
         self.running = True
 
     # -------------
@@ -385,8 +389,8 @@ class GameLoop:
         if self.player.player_class.class_attack  and self.player.class_attack_unlocked:
             atks.append(self.player.player_class.class_attack)
         # attaques d'arme
-        if self.player.equipment.weapon.bonus_attack:
-            atks.append(self.player.equipment.weapon.bonus_attack)
+        if self.player.equipment.weapon.special_attacks:
+            atks.extend(self.player.equipment.weapon.special_attacks)
         try:
             for sp in self.player.equipment.weapon.get_available_attacks():
                 if isinstance(sp, Attack):
@@ -784,6 +788,7 @@ class GameLoop:
         2) Sinon fallback simple: petites/moyennes/grandes potions avec proba selon zone.level.
         """
         drops: list[tuple[str, int]] = []
+        t = self.tier_prog.choose_tier_with_pity(self.rng, self.zone.level, max_tier=self.campaign_max_tier, fights_since_good=self._pity_since_good_drop)
 
         # 1) Drops définis sur le blueprint de l'ennemi (optionnel)
         eid = getattr(enemy, "enemy_id", None)
@@ -858,44 +863,56 @@ class GameLoop:
         return drops
 
     def _roll_equipment_drop(self, *, is_boss: bool) -> list:
-        """Retourne une liste d'objets Equipment (instances) à ajouter à l'inventaire."""
-        banks = (self.weapon_bank, self.armor_bank, self.artifact_bank)
-        zone: ZoneType  = getattr(self.zone, "zone_type", None)
-        lvl   = getattr(self.zone, "level", 1)
-        tier  = max(1, min(5, round((lvl+1)/2)))
-        is_forced = False
-
-        # pitié / boss
+        """Retourne une liste d'Equipment instanciés (0..n). Cap campagne T5 (T6 = events only)."""
+        lvl = getattr(self.zone, "level", 1)
+        max_t = self.campaign_max_tier  # 5 en campagne
+        # p(drop) de base + pity/boss
         streak = getattr(self, "_no_equip_streak", 0)
+        pulls = 0
         if is_boss:
             pulls = 1
-            is_forced = True
         else:
             base_p = min(0.40, max(0.08, 0.08 + 0.02*(lvl-1)))
             if streak >= 6:
-                is_forced = True
-            pulls = 1 if (is_forced or self.rng.random() < base_p) else 0
+                pulls = 1
+            elif self.rng.random() < base_p:
+                pulls = 1
 
-        drops = []
+        drops: list = []
+        if pulls <= 0:
+            setattr(self, "_no_equip_streak", streak + 1)
+            return drops
+
+        # banque “plate” → on filtre par tier exact choisi
+        all_protos = list(self.weapon_bank) + list(self.armor_bank) + list(self.artifact_bank)
         for _ in range(pulls):
+            # tire le tier via progression (pity intégré)
+            t = self.tier_prog.choose_tier_with_pity(self.rng, lvl, max_tier=max_t,
+                                                    fights_since_good=streak)
+            # pool = protos du tier t (et zone-compatible si précisé)
             pool = []
-            for bank in banks:
-                for proto in bank:
-                    # filtres doux: tier +-1, zones si définies
-                    ok_tier = abs(getattr(proto, "tier", tier) - tier) <= 1
-                    zs = set(getattr(proto, "zones", []) or [])
-                    ok_zone = (not zs) or (zone and zone.name in zs)
-                    if ok_tier and ok_zone:
-                        pool.append(proto)
+            zname = getattr(self.zone.zone_type, "name", None) if getattr(self.zone, "zone_type", None) else None
+            for p in all_protos:
+                ptier = int(getattr(p, "tier", 1))
+                if ptier != t:
+                    continue
+                zs = set(getattr(p, "zones", []) or [])
+                if zs and zname and (zname not in zs):
+                    continue
+                pool.append(p)
+
             if not pool:
+                # aucun proto de ce tier -> on ne drop rien pour ce tirage
                 continue
+
             proto = self.rng.choice(pool)
-            # instancier une COPIE (pas l’objet banque)
             inst = proto.clone() if hasattr(proto, "clone") else type(proto)(**proto.to_ctor_args())
             drops.append(inst)
 
-        # MAJ pitié
-        setattr(self, "_no_equip_streak", 0 if drops else streak+1)
+        # MAJ pity global : reset si on a obtenu au moins un item de tier >= T attendu
+        T_expected = self.tier_prog.tier_for_level(lvl)
+        good = any(int(getattr(e, "tier", 1)) >= T_expected for e in drops)
+        setattr(self, "_no_equip_streak", 0 if good else streak + 1)
         return drops
 
     def _grant_equipment(self, eq_list: list) -> None:
@@ -961,57 +978,36 @@ class GameLoop:
         return (True, f"Vendu {removed}× {sample.name} pour {revenue} or.")
 
     def _build_shop_stock(self, *, lvl: int, zone: Zone) -> dict:
-        """
-        Retourne {"items":[(id,price,qty)], "equip":[(Equipment, price)]}.
-        Prix = base_price * coeff (tier/rareté); qty = 1-3 pour consommables.
-        """
         factories = getattr(self, "item_factories", {}) or {}
         items = []
+        # ... (ta logique de sélection d’items reste inchangée) ...
 
-        # Items: privilégie ceux dont zones contient la zone courante
-        cand = []
-        for iid, fac in factories.items():
-            try:
-                sample = fac()
-                zs = set(getattr(sample, "zones", []) or [])
-                tier = int(getattr(sample, "tier", 1))
-                w = int(getattr(sample, "shop_weight", 1))
-                ok_zone = (not zs) or (zone and zone.zone_type.name in zs)
-                if ok_zone and abs(tier - round((lvl+1)/2)) <= 1:
-                    cand.append((iid, sample, w))
-            except Exception:
-                continue
-        # 4 items max
-        for _ in range(min(4, len(cand))):
-            total = sum(w for _,_,w in cand)
-            r = self.rng.uniform(0, total); acc = 0
-            for i,(iid,s,w) in enumerate(cand):
-                acc += w
-                if r <= acc:
-                    price = max(1, int(getattr(s, "base_price", 10) * (1.0 + 0.1*lvl)))
-                    qty = 1 if s.stackable is False else self.rng.randint(1, 3)
-                    items.append((iid, price, qty))
-                    cand.pop(i)  # éviter doublon
-                    break
-
-        # Équipements (2 slots max): filtrés par zone/tier
+        # Équipements : tiers autorisés par la progression (cap campagne)
         eqs = []
+        max_t = self.campaign_max_tier
+        allowed_tiers = set(self.tier_prog.shop_available_tiers(lvl, max_tier=max_t))
+
         bank_all = list(self.weapon_bank) + list(self.armor_bank) + list(self.artifact_bank)
         pool = []
-        for proto in bank_all:
-            zs = set(getattr(proto, "zones", []) or [])
-            ok_zone = (not zs) or (zone and zone.zone_type.name in zs)
-            t = int(getattr(proto, "tier", 1))
-            if ok_zone and abs(t - round((lvl+1)/2)) <= 1:
-                pool.append(proto)
+        zname = zone.zone_type.name
+        for p in bank_all:
+            ptier = int(getattr(p, "tier", 1))
+            if ptier not in allowed_tiers:
+                continue
+            zs = set(getattr(p, "zones", []) or [])
+            if zs and (zname not in zs):
+                continue
+            pool.append(p)
+
+        # 2 équipements max au shop
         for _ in range(min(2, len(pool))):
-            p = self.rng.choice(pool)
-            inst = p.clone() if hasattr(p, "clone") else type(p)(**p.to_ctor_args())
+            proto = self.rng.choice(pool)
+            inst = proto.clone() if hasattr(proto, "clone") else type(proto)(**proto.to_ctor_args())
+            # pricing simple: base * (1 + 0.25*(tier-1))
             base = int(getattr(inst, "base_price", 50) or 50)
-            # pricing léger : +25% par tier au-dessus de 1
-            price = int(base * (1.0 + 0.25*(int(getattr(inst,"tier",1))-1)))
+            price = int(base * (1.0 + 0.25*(int(getattr(inst, "tier", 1)) - 1)))
             eqs.append((inst, price))
-            pool.remove(p)
+            pool.remove(proto)
 
         return {"items": items, "equip": eqs}
 

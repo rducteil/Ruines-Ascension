@@ -1,7 +1,36 @@
 [
-  { "id": "cuir_brun",    "name": "Cuir brun",        "durability_max": 16, "bonus_defense": 2, "zones": ["RUINS"] },
-  { "id": "harnois_caverne","name":"Harnois des cavernes","durability_max": 14, "bonus_defense": 3, "zones": ["CAVES"] },
-  { "id": "cape_verte",   "name": "Cape verte",       "durability_max": 14, "bonus_defense": 2, "zones": ["FOREST"] },
-  { "id": "armure_voilee","name": "Armure voilée",    "durability_max": 12, "bonus_defense": 2, "zones": ["DESERT"] },
-  { "id": "cuir_étanche", "name": "Cuir étanche",     "durability_max": 16, "bonus_defense": 3, "zones": ["SWAMP"] }
+  { "id": "ruins_mail_t1",   "name": "Cotte des ruines I",     "tier": 1, "base_price": 35,  "durability_max": 16, "bonus_defense": 3,  "zones": ["RUINS"] },
+  { "id": "caves_harness_t1","name": "Harnois des cavernes I", "tier": 1, "base_price": 35,  "durability_max": 14, "bonus_defense": 3,  "zones": ["CAVES"] },
+  { "id": "forest_cloak_t1", "name": "Cape forestière I",      "tier": 1, "base_price": 35,  "durability_max": 14, "bonus_defense": 2,  "zones": ["FOREST"] },
+  { "id": "desert_mail_t1",  "name": "Armure du désert I",     "tier": 1, "base_price": 35,  "durability_max": 12, "bonus_defense": 2,  "zones": ["DESERT"] },
+  { "id": "swamp_leather_t1","name": "Cuir des marais I",      "tier": 1, "base_price": 35,  "durability_max": 16, "bonus_defense": 3,  "zones": ["SWAMP"] },
+
+  { "id": "ruins_mail_t2",   "name": "Cotte des ruines II",    "tier": 2, "base_price": 55,  "durability_max": 18, "bonus_defense": 5,  "zones": ["RUINS"] },
+  { "id": "caves_harness_t2","name": "Harnois des cavernes II","tier": 2, "base_price": 55,  "durability_max": 16, "bonus_defense": 5,  "zones": ["CAVES"] },
+  { "id": "forest_cloak_t2", "name": "Cape forestière II",     "tier": 2, "base_price": 55,  "durability_max": 16, "bonus_defense": 4,  "zones": ["FOREST"] },
+  { "id": "desert_mail_t2",  "name": "Armure du désert II",    "tier": 2, "base_price": 55,  "durability_max": 14, "bonus_defense": 4,  "zones": ["DESERT"] },
+  { "id": "swamp_leather_t2","name": "Cuir des marais II",     "tier": 2, "base_price": 55,  "durability_max": 18, "bonus_defense": 5,  "zones": ["SWAMP"] },
+
+  { "id": "ruins_mail_t3",   "name": "Cotte des ruines III",   "tier": 3, "base_price": 75,  "durability_max": 20, "bonus_defense": 7,  "zones": ["RUINS"] },
+  { "id": "caves_harness_t3","name": "Harnois des cavernes III","tier":3, "base_price": 75,  "durability_max": 18, "bonus_defense": 7,  "zones": ["CAVES"] },
+  { "id": "forest_cloak_t3", "name": "Cape forestière III",    "tier": 3, "base_price": 75,  "durability_max": 18, "bonus_defense": 6,  "zones": ["FOREST"] },
+  { "id": "desert_mail_t3",  "name": "Armure du désert III",   "tier": 3, "base_price": 75,  "durability_max": 16, "bonus_defense": 6,  "zones": ["DESERT"] },
+  { "id": "swamp_leather_t3","name": "Cuir des marais III",    "tier": 3, "base_price": 75,  "durability_max": 20, "bonus_defense": 7,  "zones": ["SWAMP"] },
+
+  { "id": "ruins_mail_t4",   "name": "Cotte des ruines IV",    "tier": 4, "base_price": 100, "durability_max": 22, "bonus_defense": 9,  "zones": ["RUINS"] },
+  { "id": "caves_harness_t4","name": "Harnois des cavernes IV","tier": 4, "base_price": 100, "durability_max": 20, "bonus_defense": 9,  "zones": ["CAVES"] },
+  { "id": "forest_cloak_t4", "name": "Cape forestière IV",     "tier": 4, "base_price": 100, "durability_max": 20, "bonus_defense": 8,  "zones": ["FOREST"] },
+  { "id": "desert_mail_t4",  "name": "Armure du désert IV",    "tier": 4, "base_price": 100, "durability_max": 18, "bonus_defense": 8,  "zones": ["DESERT"] },
+  { "id": "swamp_leather_t4","name": "Cuir des marais IV",     "tier": 4, "base_price": 100, "durability_max": 22, "bonus_defense": 9,  "zones": ["SWAMP"] },
+
+  { "id": "ruins_mail_t5",   "name": "Cotte des ruines V",     "tier": 5, "base_price": 130, "durability_max": 24, "bonus_defense": 12, "zones": ["RUINS"] },
+  { "id": "caves_harness_t5","name": "Harnois des cavernes V", "tier": 5, "base_price": 130, "durability_max": 22, "bonus_defense": 12, "zones": ["CAVES"] },
+  { "id": "forest_cloak_t5", "name": "Cape forestière V",      "tier": 5, "base_price": 130, "durability_max": 22, "bonus_defense": 11, "zones": ["FOREST"] },
+  { "id": "desert_mail_t5",  "name": "Armure du désert V",     "tier": 5, "base_price": 130, "durability_max": 20, "bonus_defense": 11, "zones": ["DESERT"] },
+  { "id": "swamp_leather_t5","name": "Cuir des marais V",      "tier": 5, "base_price": 130, "durability_max": 24, "bonus_defense": 12, "zones": ["SWAMP"] },
+
+  { "id": "token_mail_t2",   "name": "Cotte d’essai II",       "tier": 2, "base_price": 55,  "durability_max": 18, "bonus_defense": 5 },
+  { "id": "token_mail_t3",   "name": "Cotte d’essai III",      "tier": 3, "base_price": 75,  "durability_max": 20, "bonus_defense": 7 },
+  { "id": "token_mail_t4",   "name": "Cotte d’essai IV",       "tier": 4, "base_price": 100, "durability_max": 22, "bonus_defense": 9 },
+  { "id": "token_mail_t5",   "name": "Cotte d’essai V",        "tier": 5, "base_price": 130, "durability_max": 24, "bonus_defense": 12 }
 ]

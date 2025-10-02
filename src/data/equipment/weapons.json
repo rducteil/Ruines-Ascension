@@ -1,95 +1,36 @@
-{
-  "epee_rustique": { 
-    "name": "Épée rustique",   
-    "durability_max": 12, 
-    "bonus_attack": 3, 
-    "tier": 1,
-    "tags": ["melee", "physique"],
-    "base_price": 40,
-    "zones": ["RUINS"] 
-  },
-  "masse_eclatee": {  
-    "name": "Masse éclatée",   
-    "durability_max": 10, 
-    "bonus_attack": 4,  
-    "tier": 1,
-    "tags": ["melee", "physique"],
-    "base_price": 40,
-    "zones": ["RUINS"] },
+[
+  { "id": "ruins_blade_t1",   "name": "Lame des ruines I",     "tier": 1, "base_price": 40,  "durability_max": 12, "bonus_attack": 4,  "tags": ["melee","physique"], "zones": ["RUINS"] },
+  { "id": "caves_pike_t1",    "name": "Pique des cavernes I",  "tier": 1, "base_price": 40,  "durability_max": 12, "bonus_attack": 4,  "tags": ["melee","physique"], "zones": ["CAVES"] },
+  { "id": "forest_sickle_t1", "name": "Serpe forestière I",    "tier": 1, "base_price": 40,  "durability_max": 12, "bonus_attack": 4,  "tags": ["melee","physique"], "zones": ["FOREST"] },
+  { "id": "desert_scimitar_t1","name":"Cimeterre du désert I", "tier": 1, "base_price": 40,  "durability_max": 12, "bonus_attack": 5,  "tags": ["melee","mixte"],    "zones": ["DESERT"] },
+  { "id": "swamp_halberd_t1", "name": "Hallebarde des marais I","tier": 1,"base_price": 40,  "durability_max": 14, "bonus_attack": 5,  "tags": ["melee","physique"], "zones": ["SWAMP"] },
 
-  "pique_stalactite": {
-    "name": "Pique stalactite",
-    "durability_max": 10, 
-    "bonus_attack": 4,  
-    "tier": 1,
-    "tags": ["hybride", "mixte"],
-    "base_price": 40,
-    "zones": ["CAVES"] 
-  },
-  "dague_chitinee": { 
-    "name": "Dague chitinée", 
-    "durability_max": 12, 
-    "bonus_attack": 3,  
-    "tier": 1,
-    "tags": ["melee", "mixte"],
-    "base_price": 40,
-    "zones": ["CAVES"] 
-  },
+  { "id": "ruins_blade_t2",   "name": "Lame des ruines II",    "tier": 2, "base_price": 60,  "durability_max": 14, "bonus_attack": 7,  "tags": ["melee","physique"], "zones": ["RUINS"] },
+  { "id": "caves_pike_t2",    "name": "Pique des cavernes II", "tier": 2, "base_price": 60,  "durability_max": 14, "bonus_attack": 7,  "tags": ["melee","physique"], "zones": ["CAVES"] },
+  { "id": "forest_sickle_t2", "name": "Serpe forestière II",   "tier": 2, "base_price": 60,  "durability_max": 14, "bonus_attack": 7,  "tags": ["melee","physique"], "zones": ["FOREST"] },
+  { "id": "desert_scimitar_t2","name":"Cimeterre du désert II","tier": 2, "base_price": 60,  "durability_max": 14, "bonus_attack": 8,  "tags": ["melee","mixte"],    "zones": ["DESERT"] },
+  { "id": "swamp_halberd_t2", "name": "Hallebarde des marais II","tier":2,"base_price": 60,  "durability_max": 16, "bonus_attack": 8,  "tags": ["melee","physique"], "zones": ["SWAMP"] },
 
-  "serpe_forestiere": {
-    "name": "Serpe forestière",
-    "durability_max": 12, 
-    "bonus_attack": 4,  
-    "tier": 1,
-    "tags": ["ranged", "mystique"],
-    "base_price": 40,
-    "zones": ["FOREST"] 
-  },
-  "arc_court": {      
-    "name": "Arc court",       
-    "durability_max": 10, 
-    "bonus_attack": 3,  
-    "tier": 1,
-    "tags": ["ranged", "physique"],
-    "base_price": 40,
-    "zones": ["FOREST"] 
-  },
+  { "id": "ruins_blade_t3",   "name": "Lame des ruines III",   "tier": 3, "base_price": 85,  "durability_max": 16, "bonus_attack": 10, "tags": ["melee","physique"], "zones": ["RUINS"] },
+  { "id": "caves_pike_t3",    "name": "Pique des cavernes III","tier": 3, "base_price": 85,  "durability_max": 16, "bonus_attack": 10, "tags": ["melee","physique"], "zones": ["CAVES"] },
+  { "id": "forest_sickle_t3", "name": "Serpe forestière III",  "tier": 3, "base_price": 85,  "durability_max": 16, "bonus_attack": 10, "tags": ["melee","physique"], "zones": ["FOREST"] },
+  { "id": "desert_scimitar_t3","name":"Cimeterre du désert III","tier":3, "base_price": 85,  "durability_max": 16, "bonus_attack": 11, "tags": ["melee","mixte"],    "zones": ["DESERT"] },
+  { "id": "swamp_halberd_t3", "name": "Hallebarde des marais III","tier":3,"base_price": 85,"durability_max": 18, "bonus_attack": 11, "tags": ["melee","physique"], "zones": ["SWAMP"] },
 
-  "cimeterre_sable": { 
-    "name": "Cimeterre du sable",
-    "durability_max": 12, 
-    "bonus_attack": 5,  
-    "tier": 1,
-    "tags": ["melee", "mixte"],
-    "base_price": 40,
-    "zones": ["DESERT"] 
-  },
-  "lance_legere": {    
-    "name": "Lance légère",    
-    "durability_max": 12, 
-    "bonus_attack": 4,  
-    "tier": 1,
-    "tags": ["hybride", "physique"],
-    "base_price": 40,
-    "zones": ["DESERT"] 
-  },
+  { "id": "ruins_blade_t4",   "name": "Lame des ruines IV",    "tier": 4, "base_price": 115, "durability_max": 18, "bonus_attack": 13, "tags": ["melee","physique"], "zones": ["RUINS"] },
+  { "id": "caves_pike_t4",    "name": "Pique des cavernes IV", "tier": 4, "base_price": 115, "durability_max": 18, "bonus_attack": 13, "tags": ["melee","physique"], "zones": ["CAVES"] },
+  { "id": "forest_sickle_t4", "name": "Serpe forestière IV",   "tier": 4, "base_price": 115, "durability_max": 18, "bonus_attack": 13, "tags": ["melee","physique"], "zones": ["FOREST"] },
+  { "id": "desert_scimitar_t4","name":"Cimeterre du désert IV","tier": 4, "base_price": 115, "durability_max": 18, "bonus_attack": 14, "tags": ["melee","mixte"],    "zones": ["DESERT"] },
+  { "id": "swamp_halberd_t4", "name": "Hallebarde des marais IV","tier":4,"base_price": 115,"durability_max": 20, "bonus_attack": 14, "tags": ["melee","physique"], "zones": ["SWAMP"] },
 
-  "gourdin_gluant": { 
-    "name": "Gourdin gluant",  
-    "durability_max": 10, 
-    "bonus_attack": 4,  
-    "tier": 1,
-    "tags": ["melee", "physique"],
-    "base_price": 40,
-    "zones": ["SWAMP"] 
-  },
-  "hallebarde_rouillee": {
-    "name":"Hallebarde rouillée",
-    "durability_max": 14, 
-    "bonus_attack": 5,  
-    "tier": 1,
-    "tags": ["melee", "physique"],
-    "base_price": 40,
-    "zones": ["SWAMP"] 
-  }
-}
+  { "id": "ruins_blade_t5",   "name": "Lame des ruines V",     "tier": 5, "base_price": 150, "durability_max": 20, "bonus_attack": 16, "tags": ["melee","physique"], "zones": ["RUINS"] },
+  { "id": "caves_pike_t5",    "name": "Pique des cavernes V",  "tier": 5, "base_price": 150, "durability_max": 20, "bonus_attack": 16, "tags": ["melee","physique"], "zones": ["CAVES"] },
+  { "id": "forest_sickle_t5", "name": "Serpe forestière V",    "tier": 5, "base_price": 150, "durability_max": 20, "bonus_attack": 16, "tags": ["melee","physique"], "zones": ["FOREST"] },
+  { "id": "desert_scimitar_t5","name":"Cimeterre du désert V", "tier": 5, "base_price": 150, "durability_max": 20, "bonus_attack": 17, "tags": ["melee","mixte"],    "zones": ["DESERT"] },
+  { "id": "swamp_halberd_t5", "name": "Hallebarde des marais V","tier": 5, "base_price": 150, "durability_max": 22, "bonus_attack": 17, "tags": ["melee","physique"], "zones": ["SWAMP"] },
+
+  { "id": "token_blade_t2",   "name": "Épée d’essai II",       "tier": 2, "base_price": 60,  "durability_max": 14, "bonus_attack": 7,  "tags": ["melee","physique"] },
+  { "id": "token_blade_t3",   "name": "Épée d’essai III",      "tier": 3, "base_price": 85,  "durability_max": 16, "bonus_attack": 10, "tags": ["melee","physique"] },
+  { "id": "token_blade_t4",   "name": "Épée d’essai IV",       "tier": 4, "base_price": 115, "durability_max": 18, "bonus_attack": 13, "tags": ["melee","physique"] },
+  { "id": "token_blade_t5",   "name": "Épée d’essai V",        "tier": 5, "base_price": 150, "durability_max": 20, "bonus_attack": 16, "tags": ["melee","physique"] }
+]
