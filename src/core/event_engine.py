@@ -34,6 +34,7 @@ from pathlib import Path
 
 from core.combat import CombatEvent, CombatContext, CombatResult
 from core.data_paths import default_data_dirs
+from core.effects_bank import make_effect
 
 if TYPE_CHECKING:
     from core.player import Player
@@ -203,16 +204,16 @@ class EventEngine:
     # --------- Application ---------
 
     def apply_option(
-        self,
-        event: LoadedEvent,
-        option_id: str,
-        *,
-        player: Player,
-        wallet: Any | None = None,
-        extra_ctx: dict | None = None,  # ex: {"zone": zone_obj}
-    ) -> EventApplyResult:
+    self,
+    event: LoadedEvent,
+    option_id: str,
+    *,
+    player: Player,
+    wallet: Any | None = None,
+    extra_ctx: dict | None = None,  # ex: {"zone": zone_obj}
+) -> EventApplyResult:
         """Applique les effets de l'option (ou on_fail si requirements non remplis)."""
-        # 1) Retourner l'option choisi
+        # 1) Retrouver l’option choisie
         opt = next((o for o in event.options if o.id == option_id), None)
         if opt is None:
             return EventApplyResult(events=[CombatEvent(text="Option invalide.", tag="event_error")])
@@ -221,27 +222,28 @@ class EventEngine:
         logs: list[CombatEvent] = []
         ctx = CombatContext(attacker=player, defender=None, events=logs)
 
-        # 3) Vérifie les prérequis
+        # 3) Vérifier les prérequis (sinon on_fail)
         if not self._requirements_met(opt.raw.get("requires", []), player):
-            # on_fail si présent
             for eff in opt.raw.get("on_fail", []):
                 self._apply_effect_payload(eff, player, wallet, ctx, extra_ctx)
             if not opt.raw.get("on_fail"):
                 logs.append(CombatEvent(text="Tu n'as pas les prérequis pour cette option.", tag="event_requires"))
             return EventApplyResult(events=logs)
 
-        # 4) Appliquer les effets
+        # 4) Appliquer les effets de l’option
         pending_combat: dict | None = None
         for eff in opt.raw.get("effects", []):
+            # Cas particulier: déclenchement d’un combat (le GameLoop interprètera)
             if isinstance(eff, dict) and eff.get("type") == "start_combat":
-                # {"enemy_id": "..."} ou {"boss": true} (le GameLoop interprétera)
+                # ex: {"enemy_id": "..."} ou {"boss": true}
                 pending_combat = eff
                 continue
-            # délégation au dispatcher
+            # Dispatcher data-driven (heal/damage/gold/apply_effect/etc.)
             self._apply_effect_payload(eff, player, wallet, ctx, extra_ctx)
 
-        # 5) Retourne les logs
+        # 5) Retourne les logs + éventuel ordre de combat à démarrer
         return EventApplyResult(events=logs, start_combat=pending_combat)
+
 
     def _requirements_met(self, reqs: Sequence[dict], player: Any) -> bool:
         """Actuellement: seuils sur les stats (gte/lte). S'étend facilement (items, or...)."""
@@ -306,13 +308,21 @@ class EventEngine:
             eff_id = eff.get("effect_id")
             duration = int(eff.get("duration", 0))
             potency = int(eff.get("potency", 0))
-            from content.effects_bank import make_effect  # petit registry côté contenu
             try:
-                new_eff: Effect = make_effect(eff_id, duration=duration, potency=potency)
-                self.effects.apply(player, new_eff, source_name=f"event:{eff_id}", ctx=ctx)
-                ctx.events.append(CombatEvent(text=f"Effet {new_eff.name} appliqué.", tag="apply_effect"))
-            except Exception:
+                new_effs: list[Effect] = make_effect(eff_id, duration=duration, potency=potency)
+            except KeyError:
                 ctx.events.append(CombatEvent(text=f"Échec: effet inconnu '{eff_id}'.", tag="apply_effect_fail"))
+                return
+            if not new_effs:
+                ctx.events.append(CombatEvent(text=f"Échec: effet inconnu '{eff_id}'.", tag="apply_effect_fail"))
+                return
+            
+            for new_eff in new_effs:
+                try:
+                    self.effects.apply(player, new_eff, source_name=f"event:{eff_id}", ctx=ctx, max_stacks=1)
+                    ctx.events.append(CombatEvent(text=f"Effet {new_eff.name} appliqué.", tag="apply_effect"))
+                except Exception:
+                    ctx.events.append(CombatEvent(text=f"Échec: effet inconnu '{eff_id}'.", tag="apply_effect_fail"))
             return
         # Inconnu → log
         ctx.events.append(CombatEvent(text=f"(Effet inconnu ignoré: {t})", tag="event_unknown"))

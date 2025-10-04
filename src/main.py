@@ -3,6 +3,7 @@ from core.player import Player
 from game.game_loop import GameLoop
 from ui.console_io import ConsoleIO
 from typing import TYPE_CHECKING
+import sys, time, threading, os
 
 from core.data_loader import load_player_classes, load_attacks, load_loadouts
 from core.loadout import LoadoutManager

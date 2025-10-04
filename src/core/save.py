@@ -38,7 +38,7 @@ _EFFECT_REGISTRY = {
     for name, cls in inspect.getmembers(effects, inspect.isclass)
     if issubclass(cls, Effect)
 }
-from content.effects_bank import make_effect
+from core.effects_bank import make_effect
 from core.loadout import Loadout, LoadoutManager
 from core.equipment import Weapon, Armor, Artifact, Equipment
 # from game.game_loop import GameLoop

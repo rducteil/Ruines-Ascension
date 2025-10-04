@@ -122,8 +122,8 @@ class Equipment:
 
     # --- helpers UI/log ---
     def get_info(self) -> str:
-        state = "cassé" if self.is_broken() else "ok"
-        return f"{self.name} [{state}] ({self.durability.current}/{self.durability.maximum})"
+        status = "cassé" if self.is_broken() else "ok"
+        return f"{self.name} [{status}] ({self.durability.current}/{self.durability.maximum})"
 
 
 class Weapon(Equipment):
@@ -157,6 +157,10 @@ class Weapon(Equipment):
     def on_after_attack(self, ctx: CombatContext) -> None:
         '''Hook appelé par le moteur après l'attaque du porteur'''
         self.degrade(1)
+    
+    # --- helpers UI/log ---
+    def get_info(self) -> str:
+        return super().get_info() + f"  | +{self.bonus_attack} ATK | \"{self.description}\""
 
 class Armor(Equipment):
     """Armor: bonus plats (DEF), usure quand on encaisse des dégâts."""
@@ -183,6 +187,10 @@ class Armor(Equipment):
     def on_after_hit(self, ctx: CombatContext, damage_taken: int) -> None:
         if damage_taken > 0:
             self.degrade(1)
+
+    # --- helpers UI/log ---
+    def get_info(self) -> str:
+        return super().get_info() + f"  | +{self.bonus_defense} DEF | \"{self.description}\""
 
 class Artifact(Equipment):
     """A versatile equippable that applies several flat stat bonuses."""
@@ -222,3 +230,7 @@ class Artifact(Equipment):
 
     def on_turn_end(self, ctx: CombatContext) -> None:
         pass
+
+    # --- helpers UI/log ---
+    def get_info(self) -> str:
+        return super().get_info() + f"  | +{int(round(100*self.atk_pct))}% ATK | +{int(round(100*self.def_pct))}% DEF | +{int(round(100*self.lck_pct))}% LCK | \"{self.description}\""

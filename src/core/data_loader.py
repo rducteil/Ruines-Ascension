@@ -1,17 +1,23 @@
 from __future__ import annotations
-"""Loaders JSON → objets du core + fusion dans les registres existants.
+"""
+Loaders JSON → objets du core + fusion dans les registres existants.
 
 Fichiers attendus (dans src/data/ ou mods/env):
 - player_classes.json           (dict)
-- attacks.json                  (dict)
+- attacks.json                  (dict ou list)
 - loadouts.json                 (dict)
-- items.json                    (list)
+- items.json                    (dict ou list)
 - shops/offers.json             (dict)
 - shops/config.json             (dict)
+- enemies/*.json                (dict ou list)
+- encounters/*.json             (format zone unique ou mapping {ZONE:{...}})
+- equipment/weapons.json        (list)
+- equipment/armors.json         (list)
+- equipment/artifacts.json      (list)
 """
 
 from dataclasses import dataclass
-from typing import Any, Callable, TYPE_CHECKING
+from typing import Any, Callable, TYPE_CHECKING, Dict, List
 import json
 from pathlib import Path
 from copy import deepcopy
@@ -20,24 +26,25 @@ import random
 from core.data_paths import default_data_dirs
 from core.attack import Attack
 from core.loadout import Loadout
-from core.item import Consumable
+from core.item import Consumable, Slot
 from core.stats import Stats
 from core.player_class import PlayerClass
-from content.effects_bank import make_effect
+from core.effects_bank import make_effect
 from core.effect_manager import EffectManager
 from content.shop_offers import ShopOffer
-from core.enemy import Enemy  
+from core.enemy import Enemy
 from core.equipment import Weapon, Armor, Artifact
 from core.equipment_set import EquipmentSet
 from core.combat import CombatEvent
 from core.behavior import BEHAVIOR_REGISTRY
+
 if TYPE_CHECKING:
     from core.player import Player
 
 
 # ---------- Helpers JSON ----------
 
-def _read_json_first(path_rel: str) -> dict[str, dict] | None:
+def _read_json_first(path_rel: str) -> Any | None:
     """Lit le premier JSON trouvé pour path_rel depuis la liste de répertoires de données."""
     for base in default_data_dirs():
         p = base / Path(path_rel)
@@ -47,6 +54,44 @@ def _read_json_first(path_rel: str) -> dict[str, dict] | None:
             except Exception:
                 continue
     return None
+
+
+def _as_list(rows: Any) -> List[Dict[str, Any]]:
+    """Accepte soit liste d'objets, soit dict {id: obj}; retourne toujours une liste avec 'id' normalisé en minuscules."""
+    if isinstance(rows, list):
+        out: List[Dict[str, Any]] = []
+        for r in rows:
+            r = dict(r or {})
+            rid = r.get("id") or r.get("name")
+            if rid:
+                r["id"] = str(rid).lower()
+            out.append(r)
+        return out
+    if isinstance(rows, dict):
+        out: List[Dict[str, Any]] = []
+        for k, v in rows.items():
+            r = dict(v or {})
+            r["id"] = str(r.get("id") or k).lower()
+            out.append(r)
+        return out
+    return []
+
+
+def _flatten_effects(effs: Any) -> List:
+    """Aplati proprement (Effect | list[Effect] | None) -> list[Effect]."""
+    out: List = []
+    if effs is None:
+        return out
+    if isinstance(effs, list):
+        for e in effs:
+            if isinstance(e, list):
+                out.extend([ee for ee in e if ee is not None])
+            elif e is not None:
+                out.append(e)
+    else:
+        out.append(effs)
+    return out
+
 
 # ---------- Player classes ----------
 
@@ -69,22 +114,22 @@ def load_player_classes(merge_into: dict[str, PlayerClass] | None = None) -> dic
         bonus_hp = int(row.get("bonus_hp_max", 0))
         bonus_sp = int(row.get("bonus_sp_max", 0))
 
-        # l'equipement set de base
+        # équipement de base (optionnel)
         base_equip: dict[str, dict] = row.get("base_equip", {})
         base_weapon = Weapon(
-            name=base_equip.get("weapon", {}).get("name", "name"),
+            name=base_equip.get("weapon", {}).get("name", "Arme"),
             durability_max=base_equip.get("weapon", {}).get("durability_max", 0),
             bonus_attack=base_equip.get("weapon", {}).get("bonus_attack", 0),
             description=base_equip.get("weapon", {}).get("description", "")
         )
         base_armor = Armor(
-            name=base_equip.get("armor", {}).get("name", "name"),
+            name=base_equip.get("armor", {}).get("name", "Armure"),
             durability_max=base_equip.get("armor", {}).get("durability_max", 0),
             bonus_defense=base_equip.get("armor", {}).get("bonus_defense", 0),
             description=base_equip.get("armor", {}).get("description", "")
         )
         base_artifact = Artifact(
-            name=base_equip.get("artifact", {}).get("name", "name"),
+            name=base_equip.get("artifact", {}).get("name", "Artéfact"),
             durability_max=base_equip.get("artifact", {}).get("durability_max", 0),
             atk_pct=base_equip.get("artifact", {}).get("atk_pct", 0.0),
             def_pct=base_equip.get("artifact", {}).get("def_pct", 0.0),
@@ -99,7 +144,7 @@ def load_player_classes(merge_into: dict[str, PlayerClass] | None = None) -> dic
 
         # attaque de classe
         atk_def: dict = row.get("attack")
-        class_attack = _attack_from_dict(atk_def)
+        class_attack = _attack_from_dict(atk_def) if isinstance(atk_def, dict) else None
 
         result[key] = PlayerClass(
             name=name,
@@ -111,54 +156,72 @@ def load_player_classes(merge_into: dict[str, PlayerClass] | None = None) -> dic
         )
     return result
 
+
 # ---------- Attacks & Loadouts ----------
 
-def _attack_from_dict(d: dict) -> Attack:
-    """Crée une Attack depuis un dict JSON (supporte 'effects':[{'effect_id', 'duration','potency'}])."""
-    d: dict[str, dict] = dict(d)  # shallow copy
-    # convertir effects -> objets Effect
-    effs = []
-    for e in d.get("effects", []) or []:
-        eid = e.get("effect_id")
-        dur = int(e.get("duration", 0))
-        pot = int(e.get("potency", 0))
-        effs.append(make_effect(eid, duration=dur, potency=pot))
-    d["effects"] = effs
+def _attack_from_dict(d: dict | None) -> Attack | None:
+    """Crée une Attack depuis un dict JSON (supporte effects sous forme str ou dict {id,duration,potency})."""
+    if not isinstance(d, dict):
+        return None
+    row: dict[str, Any] = dict(d)  # shallow copy
 
-    # champs connus de Attack (on laisse Python ignorer ceux qu'il ne connaît pas si dataclass strict=False)
+    # Construire une liste plate d'effets
+    eff_objs: List = []
+    for e in (row.get("effects") or []):
+        if isinstance(e, dict):
+            eid = e.get("id") or e.get("effect_id") or e.get("name")
+            dur = int(e.get("duration", 0))
+            pot = int(e.get("potency", 0))
+            made = make_effect(str(eid), duration=dur, potency=pot)
+        else:
+            made = make_effect(str(e), duration=0, potency=0)
+        eff_objs.extend(_flatten_effects(made))
+
+    # Champs de Attack (adapter si ta classe a d'autres noms)
     atk = Attack(
-        name=d.get("name", "Attaque"),
-        base_damage=int(d.get("base_damage", 0)),
-        variance=int(d.get("variance", 0)),
-        cost=int(d.get("cost", 0)),
-        crit_multiplier=float(d.get("crit_multiplier", 2.0)),
-        ignore_defense_pct=float(d.get("ignore_defense_pct", 0.0)),
-        true_damage=int(d.get("true_damage", 0)),
-        effects=effs,
-        # facultatif si tu as ajouté 'target' à Attack
-        **({ "target": d["target"] } if "target" in d else {})
+        name=row.get("name", "Attaque"),
+        base_damage=int(row.get("base_damage", 0)),
+        variance=int(row.get("variance", 0)),
+        cost=int(row.get("cost", 0)),
+        crit_multiplier=float(row.get("crit_multiplier", 2.0)),
+        ignore_defense_pct=float(row.get("ignore_defense_pct", 0.0)),
+        true_damage=int(row.get("true_damage", 0)),
+        effects=eff_objs,
+        **({"target": row["target"]} if "target" in row else {})
     )
-
-    dd = d.get("deals_damage", True)
+    dd = row.get("deals_damage", True)
     try:
         dd = bool(dd)
     except Exception:
         dd = True
     setattr(atk, "deals_damage", dd)
-
     return atk
 
-def load_attacks() -> dict[str, Attack]:
-    """Charge attacks.json et retourne un dict {attack_id_lower: Attack}."""
-    raw = _read_json_first("attacks.json")
-    res: dict[str, Attack] = {}
-    if isinstance(raw, dict):
-        for key, d in raw.items():
-            k = str(key).strip().lower()
-            res[k] = _attack_from_dict(d)
-    return res
 
-# core/data_loader.py
+def load_attacks() -> dict[str, Attack]:
+    """
+    Charge data/attacks.json et construit un dict {attack_id: Attack}.
+    - Accepte JSON dict {id: {...}} ou list [{...}].
+    - Garantit que Attack.effects est une liste plate d’Effect.
+    - Les ids sont normalisés en minuscules.
+    """
+    raw = _read_json_first("attacks.json")
+    if raw is None:
+        return {}
+
+    rows = _as_list(raw)
+    attacks: Dict[str, Attack] = {}
+    for row in rows:
+        rid: str = str(row.get("id") or row.get("name") or "").lower()
+        if not rid:
+            continue
+        atk = _attack_from_dict(row)
+        if atk is None:
+            continue
+        attacks[rid] = atk
+    return attacks
+
+
 def load_loadouts(attacks_registry: dict[str, Attack]) -> dict[str, Loadout]:
     """Charge loadouts.json et construit {class_key_lower: Loadout}."""
     raw = _read_json_first("loadouts.json")
@@ -179,17 +242,30 @@ def load_loadouts(attacks_registry: dict[str, Attack]) -> dict[str, Loadout]:
             u = _slot(row.get("utility"))
             out[ck] = Loadout(primary=p, skill=s, utility=u)
         except KeyError:
-            # au besoin: logger un warning ici
             continue
     return out
 
 
 # ---------- Items (consommables) & Shop ----------
 
+def _infer_kind_from_payload(payload: dict) -> Slot:
+    """Mappe le type d'usage JSON vers un Slot valide pour Consumable."""
+    t = str(payload.get("type", "")).strip().lower()
+    # Soins & purge -> recovery
+    if t in ("heal_hp", "heal_sp", "cure_poison"):
+        return "recovery"
+    # Buffs, effets temporaires, fuite/maintenance -> boost
+    if t in ("buff_attack_pct", "apply_effect", "smoke_escape", "repair_equipment"):
+        return "boost"
+    return "boost"
+
+
 class DataConsumable(Consumable):
     """Consommable générique dont l'effet est décrit en JSON (champ 'use')."""
-    def __init__(self, item_id: str, name: str, description: str, *, max_stack: int, payload: dict) -> None:
-        super().__init__(item_id=item_id, name=name, description=description, max_stack=max_stack)
+    def __init__(self, item_id: str, name: str, description: str,
+                 *, max_stack: int, payload: dict, kind: Slot | None = None) -> None:
+        k: Slot = kind or _infer_kind_from_payload(payload or {})
+        super().__init__(item_id=item_id, name=name, description=description, max_stack=max_stack, kind=k)
         self._payload = dict(payload or {})
 
     def on_use(self, user: Player, ctx=None):
@@ -199,21 +275,22 @@ class DataConsumable(Consumable):
         rng = getattr(getattr(ctx, "engine", None), "rng", None) if ctx else None
         if gm is None and ctx is not None:
             gm = getattr(ctx, "effects", None)
-        
+
         if t == "heal_hp":
             amt = int(self._payload.get("amount", 0))
             healed = user.heal_hp(amt)
             evs.append(CombatEvent(text=f"{user.name} récupère {healed} PV.", tag="use_heal_hp", data={"amount": healed}))
+
         elif t == "heal_sp":
             amt = int(self._payload.get("amount", 0))
             restored = user.heal_sp(amt)
             evs.append(CombatEvent(text=f"{user.name} récupère {restored} SP.", tag="use_heal_sp", data={"amount": restored}))
+
         elif t == "cure_poison":
             try:
                 if isinstance(gm, EffectManager):
-                    removed = gm.purge(user, cls_name="PoisonEffect")  # ou effect_id="poison"
+                    removed = gm.purge(user, cls_name="PoisonEffect")
                 else:
-                    # fallback: rien si pas de manager
                     removed = 0
                 if removed:
                     evs.append(CombatEvent(text=f"{user.name} est purgé du poison.", tag="use_cure_poison"))
@@ -221,22 +298,23 @@ class DataConsumable(Consumable):
                     evs.append(CombatEvent(text="Aucun poison à purger.", tag="use_cure_poison_none"))
             except Exception:
                 evs.append(CombatEvent(text="L’antidote n’a eu aucun effet.", tag="use_cure_poison_error"))
+
         elif t == "buff_attack_pct":
-            # Applique un buff %ATK pour N tours via effects_bank
             amt = float(self._payload.get("amount", 0.0))
             dur = int(self._payload.get("duration", 1))
             try:
-                eff = make_effect("atk_pct_buff", duration=dur, potency=amt)
-                if isinstance(gm, EffectManager):
-                    gm.apply(user, eff, source_name=f"item:{self.item_id}", ctx=ctx)
-                else:
-                    eff.on_apply(user, ctx)  # fallback
+                effs = make_effect("atk_pct_buff", duration=dur, potency=amt)
+                effs = _flatten_effects(effs)
+                for eff in effs:
+                    if isinstance(gm, EffectManager):
+                        gm.apply(user, eff, source_name=f"item:{self.item_id}", ctx=ctx)
+                    else:
+                        eff.on_apply(user, ctx)
                 evs.append(CombatEvent(text=f"{user.name} sent sa force croître (+{int(amt*100)}% ATK, {dur} tour(s)).", tag="use_buff_atk"))
             except Exception:
                 evs.append(CombatEvent(text="L’élixir pétille sans effet.", tag="use_buff_atk_fail"))
 
         elif t == "repair_equipment":
-            # Répare weapon/armor de 'amount' points (si durabilité existe)
             target = str(self._payload.get("target", "weapon")).strip().lower()
             amount = int(self._payload.get("amount", 10))
             try:
@@ -253,35 +331,38 @@ class DataConsumable(Consumable):
                 evs.append(CombatEvent(text=f"{eq.name} réparée (+{new-cur}).", tag="use_repair", data={"restored": new-cur}))
 
         elif t == "smoke_escape":
-            # Chance de fuir: termine le combat si succès
             p = float(self._payload.get("chance", 0.5))
             roll = (rng.random() if rng else random.random())
             if roll < p:
                 evs.append(CombatEvent(text="Vous profitez de la fumée pour vous éclipser !", tag="use_escape", data={"success": True}))
-                # signaler une fin de combat via un champ que ta boucle comprend
                 evs[-1].end_combat = True
             else:
                 evs.append(CombatEvent(text="La fumée se dissipe trop vite...", tag="use_escape", data={"success": False}))
+
         elif t == "apply_effect":
             eid = self._payload.get("effect_id")
             dur = int(self._payload.get("duration", 0))
             pot = int(self._payload.get("potency", 0))
-            eff = make_effect(eid, duration=dur, potency=pot)
-            # On suppose que le GameLoop a un EffectManager; si ctx n'existe pas, on applique à sec:
             try:
-                # si le ctx est fourni, on applique via manager si dispo sur la boucle
-                gm = getattr(ctx, "effect_manager", None) if ctx else None
-                if gm is not None and isinstance(gm, EffectManager):
-                    gm.apply(user, eff, source_name=f"item:{self.item_id}", ctx=ctx)
+                effs = _flatten_effects(make_effect(eid, duration=dur, potency=pot))
+                for eff in effs:
+                    if isinstance(gm, EffectManager):
+                        gm.apply(user, eff, source_name=f"item:{self.item_id}", ctx=ctx)
+                    else:
+                        eff.on_apply(user, ctx)
+                if effs:
+                    evs.append(CombatEvent(text=f"{user.name} bénéficie de {effs[0].name}.", tag="use_apply_effect"))
                 else:
-                    # fallback sans manager: déclenche immédiatement on_apply
-                    eff.on_apply(user, ctx)
-                evs.append(CombatEvent(text=f"{user.name} bénéficie de {eff.name}.", tag="use_apply_effect"))
+                    evs.append(CombatEvent(text="Rien ne se produit.", tag="use_apply_effect_none"))
             except Exception:
                 evs.append(CombatEvent(text="L’objet crépite… sans effet notable.", tag="use_unknown"))
+
         else:
             evs.append(CombatEvent(text="L’objet ne semble rien faire.", tag="use_none"))
+            return super().on_use(user, ctx)
+
         return evs
+
 
 def load_items() -> dict[str, Callable[[], DataConsumable]]:
     """Charge items.json et retourne un factory dict {item_id: callable()->Consumable}."""
@@ -323,7 +404,7 @@ def load_items() -> dict[str, Callable[[], DataConsumable]]:
 
             def _factory(_id=item_id, _n=name, _d=desc, _m=max_stack, _p=use_payload,
                          _tier=tier, _tags=tags, _zones=zones, _sw=shop_w, _dw=drop_w, _bp=base_price):
-                it = DataConsumable(item_id=_id, name=_n, description=_d, max_stack=_m, payload=_p)
+                it = DataConsumable(item_id=_id, name=_n, description=_d, max_stack=_m, payload=_p, kind=None)
                 setattr(it, "tier", _tier)
                 setattr(it, "tags", _tags)
                 setattr(it, "zones", _zones)
@@ -337,6 +418,7 @@ def load_items() -> dict[str, Callable[[], DataConsumable]]:
         except Exception:
             continue
     return res
+
 
 def load_shop_offers() -> tuple[list[ShopOffer], dict[str, int]]:
     """Charge shops/offers.json et shops/config.json.
@@ -371,6 +453,7 @@ def load_shop_offers() -> tuple[list[ShopOffer], dict[str, int]]:
     }
     return offers, cfg
 
+
 # -------- Ennemis --------
 
 @dataclass
@@ -392,7 +475,7 @@ class EnemyBlueprint:
         # applique un scaling simple
         atk = self.base_stats.attack + int(self.scaling.get("attack_per_level", 0) * max(0, level - 1))
         df  = self.base_stats.defense + int(self.scaling.get("defense_per_level", 0) * max(0, level - 1))
-        lk  = self.base_stats.luck   # on ne scale pas la luck par défaut
+        lk  = self.base_stats.luck
         hp  = self.hp_max + int(self.scaling.get("hp_per_level", 0) * max(0, level - 1))
 
         e = Enemy(
@@ -407,7 +490,6 @@ class EnemyBlueprint:
             e.behavior_ai = cls() if cls else None
         except Exception:
             e.behavior_ai = None
-        # on accroche la liste d'attaques côté ennemi pour que _select_enemy_attack puisse piocher
         setattr(e, "attacks", list(self.attacks))
         setattr(e, "attack_weights", list(self.attack_weights or [1] * max(1, len(self.attacks))))
         setattr(e, "enemy_id", self.enemy_id)
@@ -416,10 +498,6 @@ class EnemyBlueprint:
 
 def load_enemy_blueprints(attacks_registry: dict[str, Attack]) -> dict[str, EnemyBlueprint]:
     """Lit data/enemies/*.json ; chaque .json peut être un dict (1 ennemi) ou une liste d’ennemis."""
-    from core.data_paths import default_data_dirs
-    from pathlib import Path
-    import json
-
     res: dict[str, EnemyBlueprint] = {}
     for base in default_data_dirs():
         folder = Path(base) / "enemies"
@@ -448,12 +526,12 @@ def load_enemy_blueprints(attacks_registry: dict[str, Attack]) -> dict[str, Enem
                     gold_max = int(row.get("gold_max", 0))
                     atk_keys: list[str] = list(row.get("attacks", []))
                     atk_objs = []
-                    # 1) Teste résolution par json (ids)
+                    # 1) via ids du registre
                     for k in atk_keys:
                         kk = str(k).strip().lower()
                         if kk in attacks_registry:
                             atk_objs.append(attacks_registry[kk]); continue
-                        # 2) Teste via content.actions
+                        # 2) fallback content.actions
                         try:
                             import content.actions as _atcs
                             cand = getattr(_atcs, k, None)
@@ -461,7 +539,7 @@ def load_enemy_blueprints(attacks_registry: dict[str, Attack]) -> dict[str, Enem
                                 atk_objs.append(cand); continue
                         except Exception:
                             pass
-                        # 3) Test via match sur Attack.name
+                        # 3) match sur Attack.name
                         try:
                             import content.actions as _atcs
                             for _v in vars(_atcs).values():
@@ -475,11 +553,14 @@ def load_enemy_blueprints(attacks_registry: dict[str, Attack]) -> dict[str, Enem
                     drops = row.get("drops", None)
                     drops = dict(drops) if isinstance(drops, dict) else None
                     res[eid] = EnemyBlueprint(
-                        enemy_id=eid, name=name, base_stats=base_stats, hp_max=hp, sp_max=sp, attacks=atk_objs, attack_weights=weights, scaling=scaling, gold_max=gold_max, gold_min=gold_min, behavior=behavior, drops=drops
-                        )
+                        enemy_id=eid, name=name, base_stats=base_stats, hp_max=hp, sp_max=sp,
+                        attacks=atk_objs, attack_weights=weights, scaling=scaling,
+                        gold_max=gold_max, gold_min=gold_min, behavior=behavior, drops=drops
+                    )
                 except Exception:
                     continue
     return res
+
 
 def load_encounter_tables() -> dict[str, dict[str, list[dict]]]:
     """Lit:
@@ -487,10 +568,6 @@ def load_encounter_tables() -> dict[str, dict[str, list[dict]]]:
     - soit un seul fichier 'mob_encounter.json' qui mappe { "RUINS": {...}, "CAVES": {...}, ... }.
     Retourne {zone_name: {"normal":[{enemy_id,weight}], "boss":[...]}}.
     """
-    from core.data_paths import default_data_dirs
-    from pathlib import Path
-    import json
-
     res: dict[str, dict[str, list[dict]]] = {}
     for base in default_data_dirs():
         folder = Path(base) / "encounters"
@@ -527,9 +604,6 @@ def load_encounter_tables() -> dict[str, dict[str, list[dict]]]:
 
 def load_equipment_zone_index() -> dict[str, dict[str, list[str]]]:
     """Retourne {"weapon": {id:[zones]}, "armor": {...}, "artifact": {...}}."""
-    from core.data_paths import default_data_dirs
-    from pathlib import Path, PurePath
-    import json
     out = {"weapon": {}, "armor": {}, "artifact": {}}
     for base in default_data_dirs():
         eqdir = Path(base) / "equipment"
@@ -537,22 +611,20 @@ def load_equipment_zone_index() -> dict[str, dict[str, list[str]]]:
             continue
         for fname, kind in (("weapons.json","weapon"),("armors.json","armor"),("artifacts.json","artifact")):
             p = eqdir / fname
-            if not p.exists(): continue
+            if not p.exists(): 
+                continue
             try:
                 rows = json.loads(p.read_text(encoding="utf-8"))
                 for r in rows:
-                    zones = [z.upper() for z in r.get("zones", [])]
+                    zones = [str(z).upper() for z in r.get("zones", [])]
                     out[kind][r["id"]] = zones
             except Exception:
                 pass
     return out
 
+
 def load_equipment_banks() -> tuple[list[Weapon], list[Armor], list[Artifact]]:
     """Lit src/data/equipment/*.json et retourne 3 LISTES de prototypes (instances) avec méta + clone()."""
-    from core.data_paths import default_data_dirs
-    from pathlib import Path
-    import json
-
     w_protos: list[Weapon] = []
     a_protos: list[Armor] = []
     r_protos: list[Artifact] = []
@@ -567,11 +639,15 @@ def load_equipment_banks() -> tuple[list[Weapon], list[Armor], list[Artifact]]:
         if not hasattr(inst, "clone"):
             ctor = type(inst)
             if isinstance(inst, Weapon):
-                args = dict(name=inst.name, durability_max=inst.durability.maximum, bonus_attack=inst.bonus_attack, description=getattr(inst, "description", ""))
+                args = dict(name=inst.name, durability_max=inst.durability.maximum,
+                            bonus_attack=inst.bonus_attack, description=getattr(inst, "description", ""))
             elif isinstance(inst, Armor):
-                args = dict(name=inst.name, durability_max=inst.durability.maximum, bonus_defense=inst.bonus_defense, description=getattr(inst, "description", ""))
+                args = dict(name=inst.name, durability_max=inst.durability.maximum,
+                            bonus_defense=inst.bonus_defense, description=getattr(inst, "description", ""))
             elif isinstance(inst, Artifact):
-                args = dict(name=inst.name, durability_max=inst.durability.maximum, atk_pct=inst.atk_pct, def_pct=inst.def_pct, lck_pct=getattr(inst, "lck_pct", 0.0), description=getattr(inst, "description", ""))
+                args = dict(name=inst.name, durability_max=inst.durability.maximum,
+                            atk_pct=inst.atk_pct, def_pct=inst.def_pct, lck_pct=getattr(inst, "lck_pct", 0.0),
+                            description=getattr(inst, "description", ""))
             def _clone(_ctor=ctor, _args=args):
                 return _ctor(**_args)
             setattr(inst, "clone", _clone)

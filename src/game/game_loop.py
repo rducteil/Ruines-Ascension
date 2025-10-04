@@ -29,7 +29,7 @@ from content.shop_offers import build_offers, REST_HP_PCT, REST_SP_PCT, REPAIR_C
 from core.event_engine import EventEngine
 from core.save import save_to_file, load_from_file
 from core.data_loader import load_enemy_blueprints, load_encounter_tables, load_equipment_banks, load_equipment_zone_index, load_items, load_attacks, EnemyBlueprint
-from content.effects_bank import make_effect
+from core.effects_bank import make_effect
 from core.equipment import Equipment
 from core.item import Item
 from core.progression import TierProgression
@@ -55,6 +55,8 @@ class GameIO(Protocol):
     def choose_section(self, zone: Zone, options: Sequence[Section]) -> Section: ...
     def choose_supply_action(self, player: Player, *, wallet: Wallet, offers: list[ShopOffer]): ...
     def choose_shop_purchase(self, offers: list[ShopOffer], *, wallet:Wallet): ...
+    def choose_shop_from_catalog(self, catalog: list[dict], *, wallet: Wallet) -> tuple[int] | None: ...
+    def choose_shop_equipment(self, equip_list: list[Equipment], *, wallet: Wallet) -> int | None: ...
     def choose_event_option(self, text: str, options: Sequence[str]): ...
     def choose_next_zone(self, options: Sequence[ZoneType]) -> ZoneType: ...
     def choose_inventory_equip(self, player, *, inventory: Inventory): ...
@@ -291,6 +293,9 @@ class GameLoop:
             self.io.show_status(self.player, enemy)
 
         while self.player.hp > 0 and enemy.hp > 0 and self.running:
+            # res_p = CombatResult([CombatEvent("None")], True, True, 0, False)
+            # res_e = CombatResult([CombatEvent("None")], True, True, 0, False)
+
             # --- Tour du joueur ---
             while True:
                 act_kind, payload = self._choose_player_action(enemy)
@@ -332,6 +337,7 @@ class GameLoop:
                     if a == "use_item":
                         act_kind = "item"
                         payload = sub.get("item_id")
+                        res_p = self._use_item_in_combat(sub.get("item_id"))
                         break
                     continue
 
@@ -565,34 +571,104 @@ class GameLoop:
                         self.io.present_events(CombatResult(events=res.events, attacker_alive=True, defender_alive=True, damage_dealt=0, was_crit=False))
                     break
                 elif action == "SHOP":
-                    stock = self._build_shop_stock(lvl=self.zone.level, zone=self.zone)
-                    # 2) afficher le stock (si tu veux une preview rapide)
-                    if self.io:
-                        if stock["items"]:
-                            self.io.present_text("— Boutique (Objets) —")
-                            for iid, price, qty in stock["items"]:
-                                self.io.present_text(f"  {iid}  x{qty}  — {price} or")
-                        if stock["equip"]:
-                            self.io.present_text("— Boutique (Équipement) —")
-                            for i, (eq, price) in enumerate(stock["equip"], 1):
-                                self.io.present_text(f"  [{i}] [{eq.slot}] {eq.name} — {price} or — {eq.get_info()}")
+                    # 1) offres “génériques” (pour intégrer éventuellement le parchemin)
+                    class_key = getattr(self.player, "player_class_key", "guerrier")
+                    offers: list[ShopOffer] = build_offers(zone_level=self.zone.level, player_class_key=class_key)
+                    offers = [o for o in offers if self._is_allowed(o)]
 
-                    # 3) laisser l’IO choisir (implémente une méthode choose_shop_from_stock si tu veux)
-                    purchase = None
-                    # laisser l’IO sélectionner une offre + quantité
-                    if hasattr(self.io, "choose_shop_purchase"):
-                        choice = self.io.choose_shop_purchase(offers, wallet=self.wallet)
-                        if choice is None:
-                            res = None
-                        else:
-                            offer, qty = choice
-                            res = mgr.buy_offer(self.player, offer, qty=qty)
-                            if offer.kind == "class_scroll" and res is not None:
-                                setattr(self.player, "class_attack_unlocked", True)
-                    else:
+                    # 2) construire un catalogue mixte
+                    catalog = self._build_shop_catalog(lvl=self.zone.level, zone=self.zone, offers=offers)
+
+                    # 3) demander le choix via l’IO
+                    choice = None
+                    if hasattr(self.io, "choose_shop_from_catalog"):
+                        picked = self.io.choose_shop_from_catalog(catalog, wallet=self.wallet)
+                        # picked = (idx, qty) pour item, (idx, None) pour equip/scroll, ou None
+                        choice = picked
+
+                    if not choice:
+                        # retour sans achat
                         res = None
-                    if res is not None and self.io:
-                        self.io.present_events(CombatResult(events=res.events, attacker_alive=True, defender_alive=True, damage_dealt=0, was_crit=False))
+                        break
+
+                    idx, qty = choice
+                    row = catalog[idx]
+
+                    # 4) traiter l’achat
+                    kind = row.get("kind")
+                    if kind == "item":
+                        iid = row["item_id"]
+                        unit_price = int(row["unit_price"])
+                        qty = int(qty or 1)
+                        total = unit_price * qty
+                        if self.wallet.gold < total:
+                            if self.io:
+                                self.io.present_text("Pas assez d'or.")
+                            res = None
+                            break
+                        fac = (self.item_factories or {}).get(iid)
+                        if not fac:
+                            if self.io: self.io.present_text("Article indisponible.")
+                            res = None; break
+                        try:
+                            inst = fac()
+                            added = self.player_inventory.add_item(inst, qty=qty)
+                            if added > 0:
+                                if hasattr(self.wallet, "spend"):
+                                    self.wallet.spend(total)
+                                else:
+                                    self.wallet.add(-total)
+                                if self.io:
+                                    self.io.present_text(f"Acheté: {qty}× {getattr(inst,'name',iid)} pour {total} or.")
+                            else:
+                                if self.io: self.io.present_text("Inventaire plein.")
+                        except Exception:
+                            if self.io: self.io.present_text("Achat impossible.")
+                        res = None
+                        break
+
+                    elif kind == "equip":
+                        eq = row["equip"]
+                        price = int(row["price"])
+                        if self.wallet.gold < price:
+                            if self.io:
+                                self.io.present_text("Pas assez d'or.")
+                            res = None
+                            break
+                        try:
+                            self.player_inventory.add_equipment(eq)
+                            if hasattr(self.wallet, "spend"):
+                                self.wallet.spend(price)
+                            else:
+                                self.wallet.add(-price)
+                            if self.io:
+                                sl = getattr(eq, "slot", getattr(eq, "_slot", "?"))
+                                self.io.present_text(f"Acheté: [{sl}] {eq.name} pour {price} or.")
+                        except Exception:
+                            if self.io: self.io.present_text("Achat impossible.")
+                        res = None
+                        break
+
+                    elif kind == "scroll":
+                        off: ShopOffer = row["offer"]
+                        price = int(row["price"])
+                        if self.wallet.gold < price:
+                            if self.io: self.io.present_text("Pas assez d'or.")
+                            res = None; break
+                        # Déverrouille l’attaque de classe (même logique que buy_offer côté SupplyManager)
+                        setattr(self.player, "class_attack_unlocked", True)
+                        if hasattr(self.wallet, "spend"):
+                            self.wallet.spend(price)
+                        else:
+                            self.wallet.add(-price)
+                        if self.io:
+                            self.io.present_text(f"Acheté: {off.name} pour {price} or. (Attaque de classe déverrouillée)")
+                        res = None
+                        break
+
+                    else:
+                        # Type inconnu → ignorer
+                        res = None
                     break
                 elif action == "INSPECT":
                     if self.io:
@@ -649,9 +725,6 @@ class GameLoop:
                             self.io.present_text("Impossible de charger le fichier.")
                 else:  # "LEAVE" ou inconnu
                     break
-
-                if res is not None and self.io:
-                    self.io.present_events(CombatResult(events=res.events, attacker_alive=True, defender_alive=True, damage_dealt=0, was_crit=False))
         else:
             # Fallback simple: repos gratuit et on sort
             res = mgr.do_rest(self.player, hp_pct=REST_HP_PCT, sp_pct=REST_SP_PCT)
@@ -721,9 +794,11 @@ class GameLoop:
                 rid = raw.get("id") or raw.get("name")
                 dur = int(raw.get("duration", 0))
                 pot = int(raw.get("potency", 0))
-                return make_effect(rid, dur, pot)
+                effs = make_effect(rid, dur, pot)
+                return effs[0] if effs else None
             if isinstance(raw, str):
-                return make_effect(raw, 0, 0)
+                effs = make_effect(raw, duration=0, potency=0)
+                return effs[0] if effs else None
         except Exception:
             return None
         return None
@@ -979,10 +1054,33 @@ class GameLoop:
 
     def _build_shop_stock(self, *, lvl: int, zone: Zone) -> dict:
         factories = getattr(self, "item_factories", {}) or {}
-        items = []
-        # ... (ta logique de sélection d’items reste inchangée) ...
+        
+        # --- Items (consommables) ---
+        # on vend toujours (si dispo) les petites potions HP/SP,
+        # puis on déverrouille M/L progressivement
+        candidates = []
+        if "potion_hp_s" in factories: candidates.append(("potion_hp_s", 10))
+        if "potion_sp_s" in factories: candidates.append(("potion_sp_s", 12))
+        if lvl >= 4:
+            if "potion_hp_m" in factories: candidates.append(("potion_hp_m", 22))
+            if "potion_sp_m" in factories: candidates.append(("potion_sp_m", 26))
+        if lvl >= 8:
+            if "potion_hp_l" in factories: candidates.append(("potion_hp_l", 45))
+            if "potion_sp_l" in factories: candidates.append(("potion_sp_l", 52))
 
-        # Équipements : tiers autorisés par la progression (cap campagne)
+        # quantité dispo (un petit stock, augmente doucement avec le niveau)
+        items: list[tuple[str, int, int]] = []
+        for iid, default_price in candidates:
+            # si l’item JSON a un base_price, on le lit pour être cohérent
+            try:
+                sample = factories[iid]()
+                base_price = int(getattr(sample, "base_price", default_price) or default_price)
+            except Exception:
+                base_price = default_price
+            qty = 2 + max(0, (lvl - 1) // 3)   # 2 au début, puis +1 tous les 3 niveaux
+            items.append((iid, base_price, qty))
+
+        # --- Équipements ---
         eqs = []
         max_t = self.campaign_max_tier
         allowed_tiers = set(self.tier_prog.shop_available_tiers(lvl, max_tier=max_t))
@@ -1010,6 +1108,66 @@ class GameLoop:
             pool.remove(proto)
 
         return {"items": items, "equip": eqs}
+
+    def _build_shop_catalog(self, *, lvl: int, zone: Zone, offers: list | None = None) -> list[dict]:
+        """
+        Construit un catalogue mixte à partir de _build_shop_stock():
+        - objets: (item_id, price_unitaire, qty_affichée)
+        - équipements: (instance, price)
+        - (optionnel) scroll de classe depuis `offers`
+        Retourne une liste de dicts prêts pour l’IO:
+        { "label": str, "kind": "item"|"equip"|"scroll", "price": int, ... }
+        """
+        stock = self._build_shop_stock(lvl=lvl, zone=zone)
+        catalog: list[dict] = []
+
+        # --- Objets (consommables) ---
+        factories = self.item_factories or {}
+        for (iid, unit_price, qty) in stock.get("items", []):
+            fac = factories.get(iid)
+            try:
+                sample = fac() if fac else None
+                name = getattr(sample, "name", iid)
+            except Exception:
+                name = iid
+            label = f"[Objet] {name} — {unit_price} or (unité)  | dispo x{qty}"
+            catalog.append({
+                "label": label,
+                "kind": "item",
+                "item_id": iid,
+                "unit_price": int(unit_price),
+                "max_qty": int(qty),
+                "can_set_qty": True,
+                "price": int(unit_price),  # indicatif
+            })
+
+        # --- Équipements ---
+        for (eq, price) in stock.get("equip", []):
+            slot = getattr(eq, "slot", getattr(eq, "_slot", "?"))
+            label = f"[{slot}] {eq.get_info()} — {int(price)} or"
+            catalog.append({
+                "label": label,
+                "kind": "equip",
+                "equip": eq,
+                "price": int(price),
+            })
+
+        # --- (Optionnel) Parchemin de classe depuis les offres génériques ---
+        # Si tu veux l’intégrer au même menu:
+        if offers:
+            for off in offers:
+                if getattr(off, "kind", None) == "class_scroll":
+                    nm = getattr(off, "name", "Parchemin de maîtrise")
+                    pr = int(getattr(off, "price", 50))
+                    catalog.append({
+                        "label": f"[Parchemin] {nm} — {pr} or",
+                        "kind": "scroll",
+                        "offer": off,
+                        "price": pr,
+                    })
+                    break  # un seul
+
+        return catalog
 
     def _player_sheet(self, enemy: Enemy | None = None) -> str:
         """Construit un petit résumé: stats, attaques dispo (avec estimation), équipement."""

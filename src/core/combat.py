@@ -28,11 +28,11 @@ class CombatEvent:
 @dataclass
 class CombatResult:
     """Résultat d'une résolution d'attaque (un tour)."""
-    events: list[CombatEvent]
-    attacker_alive: bool
-    defender_alive: bool
+    events: list[CombatEvent] 
+    attacker_alive: bool 
+    defender_alive: bool 
     damage_dealt: int
-    was_crit: bool
+    was_crit: bool 
 
 @dataclass
 class CombatContext:

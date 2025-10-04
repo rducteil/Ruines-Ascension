@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from core.attack import Attack
     from core.inventory import Inventory
     from core.combat import CombatResult, CombatEngine
+    from core.equipment import Equipment
 
 class ConsoleIO:
     """Implémentation texte des callbacks I/O utilisés par GameLoop."""
@@ -57,11 +58,14 @@ class ConsoleIO:
                 # Utiliser la liste "attacks" passée par GameLoop
                 print(f"\nChoisis une attaque (STA : {player.sp}/{player.max_sp}):")
                 for i, a in enumerate(attacks, 1):
-                    if not getattr(a, "deal_damage", True):
-                        label = f"{a.name} (utilitaire, SP {a.cost})"
+                    if not getattr(a, "deals_damage", True):
+                        label = f"  {i}) {a.name} (utilitaire, SP {a.cost}) "
                     else:
                         lo, hi = engine.estimate_damage(player, enemy, a)
-                        label = f"  {i}) {a.name} (≈{lo}–{hi}, SP {a.cost})"
+                        label = f"  {i}) {a.name} (≈{lo}–{hi}, SP {a.cost}) "
+                    if getattr(a, "effects", None):
+                        for eff in a.effects:
+                            label += f"| {eff.name}"
                     print(label)
                 idx = self._ask_index(len(attacks))
                 sleep(0.5)
@@ -131,6 +135,66 @@ class ConsoleIO:
             if q.isdigit():
                 qty = max(1, int(q))
         return (off, qty)
+
+    def choose_shop_equipment(self, equip_list: list[Equipment], *, wallet: Wallet) -> int | None:
+        """Permet de choisir un équipement parmi stock['equip'] = [(inst, price), ...].
+        Renvoie un index (0-based) ou None pour annuler."""
+        if not equip_list:
+            return None
+        print("\n— Boutique (Équipement) —")
+        for i, (eq, price) in enumerate(equip_list, 1):
+            sl = getattr(eq, "slot", getattr(eq, "_slot", "?"))
+            print(f"  {i}) [{sl}] {price} or — {eq.get_info()}")
+        print("  0) Retour")
+        raw = input("> Choix: ").strip()
+        if raw == "0":
+            return None
+        try:
+            idx = int(raw) - 1
+            if 0 <= idx < len(equip_list):
+                return idx
+        except Exception:
+            pass
+        return None
+
+    def choose_shop_from_catalog(self, catalog: list[dict], *, wallet: Wallet) -> tuple[int] | None:
+        """
+        Affiche un catalogue mixte (objets + équipements + autres) et renvoie:
+        - (idx, qty) pour un achat d'OBJET (qty demandé)
+        - (idx, None) pour un achat d’ÉQUIPEMENT (pas de quantité)
+        - None pour annuler
+        Chaque entrée de `catalog` doit avoir au minimum:
+        { "label": str, "kind": "item"|"equip"|"scroll"|..., "price": int, ... }
+        Pour les items, on attend aussi: {"can_set_qty": True, "unit_price": int, "max_qty": int}
+        """
+        if not catalog:
+            print("\nBoutique: aucun article à vendre.")
+            input("(Entrée)")
+            return None
+
+        print(f"\n— Boutique — (or: {wallet.gold})")
+        for i, row in enumerate(catalog, 1):
+            print(f"  {i}) {row['label']}")
+        print("  0) Retour")
+        raw = input("> Choix: ").strip()
+        if raw == "0":
+            return None
+
+        try:
+            idx = int(raw) - 1
+            row = catalog[idx]
+        except Exception:
+            return None
+
+        if row.get("can_set_qty"):
+            # quantité pour les consommables
+            qraw = input("> Quantité (défaut 1): ").strip()
+            qty = int(qraw) if qraw.isdigit() else 1
+            qty = max(1, min(qty, int(row.get("max_qty", 99))))
+            return (idx, qty)
+
+        # équipements (ou scroll/autre) → pas de quantité
+        return (idx, None)
 
     def choose_event_option(self, text: str, options: Sequence[str]):
         print("\n-- Évènement --")
