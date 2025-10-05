@@ -1,5 +1,6 @@
 import pygame, sys, pygame_gui
 
+from ui.screens.intro import IntroScreen
 from ui.screens.main_menu import MainMenuScreen
 from ui.screens.settings import SettingsScreen
 from ui.screens.load import LoadScreen
@@ -79,13 +80,14 @@ class PygameApp:
         self.session: dict[str, object] = {}    # met player_name, class, etc... pour sauvegarde
 
         # Active les screens
+        self.screens.register("into", IntroScreen(self))
         self.screens.register("main_menu", MainMenuScreen(self))
         self.screens.register("settings", SettingsScreen(self))
         self.screens.register("load", LoadScreen(self))
         self.screens.register("achievements", AchievementsScreen (self))
         self.screens.register("character_creation", CharacterCreationScreen(self))
 
-        self.screens.set("main_menu")
+        self.screens.set("intro")
 
     def request_quit(self) -> None:
         self.running = False
