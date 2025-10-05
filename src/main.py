@@ -1,7 +1,7 @@
 from core.stats import Stats
 from core.player import Player
 from game.game_loop import GameLoop
-from ui.console_io import ConsoleIO
+from src.ui.io import ConsoleIO
 from typing import TYPE_CHECKING
 import sys, time, threading, os
 

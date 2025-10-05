@@ -1,0 +1,24 @@
+Intro partie 1 (commune a tous)
+Menu ->
+	Réglage ->
+		Boutton : Volume, Langue, Taille fenêtre, crédit
+	Charger ->
+		Fichier 1, Fichier 2, Ficher 3 (chacun plein ou vide)
+	Succès ->
+		Meilleur scores : 1. ... 2. ... etc
+	Quitter -> 
+		Quitte le jeu
+	Jouer ->
+		Fenêtre de création personnage (nom et classe avec visualisation des stats de base)
+		Intro partie 2 (spécifique à chaque classe)
+		Choix Section ->
+			Combat ->
+				Game Over si défaite
+				Score (les différent métrique pour le score et le rang parmi les autre parties)
+				-> Retourne au menu
+			Event
+			Ravitaillement (Renvoie au menu si le choix "Quitter" est pris
+			-> Retourne a choix sections 4 fois
+			-> Renvoi boss a la 5e section
+		Choix zone ->
+			Renvoie a une section de la zone

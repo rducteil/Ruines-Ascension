@@ -30,6 +30,11 @@ class ConsoleIO:
         print(enemy)
         sleep(1)
 
+    def on_battle_end(self, player: Player, enemy: Enemy, victory: bool) -> None:
+        msg = f"Victoire ! {enemy.name} est vaincu." if victory else f"Défaite… {player.name} tombe au combat."
+        print(msg)
+        sleep(1)
+
     def present_events(self, result: CombatResult) -> None:
         # result est un CombatResult (type importé par GameLoop)
         for ev in result.events:
@@ -38,11 +43,6 @@ class ConsoleIO:
     def show_status(self, player: Player, enemy: Enemy) -> None:
         print(f"   PV {player.name}: {player.hp}/{player.max_hp}  |  PV {enemy.name}: {enemy.hp}/{enemy.max_hp}")
         print(f"   SP {player.name}: {player.sp}/{player.max_sp}")
-
-    def on_battle_end(self, player: Player, enemy: Enemy, victory: bool) -> None:
-        msg = f"Victoire ! {enemy.name} est vaincu." if victory else f"Défaite… {player.name} tombe au combat."
-        print(msg)
-        sleep(1)
 
     def choose_player_action(self, player: Player, enemy: Enemy, *, attacks: list[Attack], inventory: Inventory, engine: CombatEngine):
         act = True
@@ -136,27 +136,6 @@ class ConsoleIO:
                 qty = max(1, int(q))
         return (off, qty)
 
-    def choose_shop_equipment(self, equip_list: list[Equipment], *, wallet: Wallet) -> int | None:
-        """Permet de choisir un équipement parmi stock['equip'] = [(inst, price), ...].
-        Renvoie un index (0-based) ou None pour annuler."""
-        if not equip_list:
-            return None
-        print("\n— Boutique (Équipement) —")
-        for i, (eq, price) in enumerate(equip_list, 1):
-            sl = getattr(eq, "slot", getattr(eq, "_slot", "?"))
-            print(f"  {i}) [{sl}] {price} or — {eq.get_info()}")
-        print("  0) Retour")
-        raw = input("> Choix: ").strip()
-        if raw == "0":
-            return None
-        try:
-            idx = int(raw) - 1
-            if 0 <= idx < len(equip_list):
-                return idx
-        except Exception:
-            pass
-        return None
-
     def choose_shop_from_catalog(self, catalog: list[dict], *, wallet: Wallet) -> tuple[int] | None:
         """
         Affiche un catalogue mixte (objets + équipements + autres) et renvoie:
@@ -196,6 +175,27 @@ class ConsoleIO:
         # équipements (ou scroll/autre) → pas de quantité
         return (idx, None)
 
+    def choose_shop_equipment(self, equip_list: list[Equipment], *, wallet: Wallet) -> int | None:
+        """Permet de choisir un équipement parmi stock['equip'] = [(inst, price), ...].
+        Renvoie un index (0-based) ou None pour annuler."""
+        if not equip_list:
+            return None
+        print("\n— Boutique (Équipement) —")
+        for i, (eq, price) in enumerate(equip_list, 1):
+            sl = getattr(eq, "slot", getattr(eq, "_slot", "?"))
+            print(f"  {i}) [{sl}] {price} or — {eq.get_info()}")
+        print("  0) Retour")
+        raw = input("> Choix: ").strip()
+        if raw == "0":
+            return None
+        try:
+            idx = int(raw) - 1
+            if 0 <= idx < len(equip_list):
+                return idx
+        except Exception:
+            pass
+        return None
+
     def choose_event_option(self, text: str, options: Sequence[str]):
         print("\n-- Évènement --")
         print(text)
@@ -211,6 +211,37 @@ class ConsoleIO:
             print(f"  {i}) {z.name}")
         idx = self._ask_index(len(options))
         return options[idx]
+
+    def choose_inventory_equip(self, player, *, inventory: Inventory):
+        eqs = inventory.list_equipment()
+        if not eqs:
+            print("   Aucun équipement en inventaire.")
+            input("   (Entrée pour revenir)")
+            return None
+        print("Équipements en inventaire :")
+        for i, e in enumerate(eqs, 1):
+            nm = getattr(e, "name", "???")
+            sl = getattr(e, "slot", getattr(e, "_slot", "?"))
+            print(f"  {i}) [{sl}] {nm} — {e.get_info()}")
+        idx = self._ask_index(len(eqs))
+        return {"index": idx}
+
+    def choose_sell_items(self, inventory: Inventory, *, wallet):
+        items = [row for row in inventory.list_summary() if row["kind"] == "item"]
+        if not items:
+            print("   Aucun consommable à vendre.")
+            input("   (Entrée pour revenir)")
+            return None
+        print("Vendre quel objet ?")
+        for i, it in enumerate(items, 1):
+            print(f"  {i}) {it['name']} x{it['qty']}")
+        idx = self._ask_index(len(items))
+        qraw = input("> Quantité (défaut 1): ").strip()
+        qty = int(qraw) if qraw.isdigit() else 1
+        return {"item_id": items[idx]["id"], "qty": max(1, qty)}
+
+    def present_text(self, text: str) -> None:
+        print(text)
 
     # ---------- Helpers ----------
 
@@ -271,35 +302,3 @@ class ConsoleIO:
 
             else:
                 return None
-
-
-    def choose_inventory_equip(self, player, *, inventory: Inventory):
-        eqs = inventory.list_equipment()
-        if not eqs:
-            print("   Aucun équipement en inventaire.")
-            input("   (Entrée pour revenir)")
-            return None
-        print("Équipements en inventaire :")
-        for i, e in enumerate(eqs, 1):
-            nm = getattr(e, "name", "???")
-            sl = getattr(e, "slot", getattr(e, "_slot", "?"))
-            print(f"  {i}) [{sl}] {nm} — {e.get_info()}")
-        idx = self._ask_index(len(eqs))
-        return {"index": idx}
-
-    def choose_sell_items(self, inventory: Inventory, *, wallet):
-        items = [row for row in inventory.list_summary() if row["kind"] == "item"]
-        if not items:
-            print("   Aucun consommable à vendre.")
-            input("   (Entrée pour revenir)")
-            return None
-        print("Vendre quel objet ?")
-        for i, it in enumerate(items, 1):
-            print(f"  {i}) {it['name']} x{it['qty']}")
-        idx = self._ask_index(len(items))
-        qraw = input("> Quantité (défaut 1): ").strip()
-        qty = int(qraw) if qraw.isdigit() else 1
-        return {"item_id": items[idx]["id"], "qty": max(1, qty)}
-
-    def present_text(self, text: str) -> None:
-        print(text)
