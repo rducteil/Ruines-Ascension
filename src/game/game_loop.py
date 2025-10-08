@@ -78,7 +78,6 @@ class ZoneType(Enum):
     CAVES = auto()
     FOREST = auto()
     DESERT = auto()
-    SWAMP = auto()
 
 @dataclass
 class ZoneState:
@@ -98,7 +97,7 @@ def next_zone_options(current: ZoneType, rng: random.Random, k: int = 3) -> list
     rng.shuffle(pool)
     return pool[:max(1, min(k, len(pool)))]
 
-ZONE_TYPE_LIST: list[ZoneType] = [ZoneType.RUINS, ZoneType.CAVES, ZoneType.FOREST, ZoneType.DESERT, ZoneType.SWAMP]
+ZONE_TYPE_LIST: list[ZoneType] = [ZoneType.RUINS, ZoneType.CAVES, ZoneType.FOREST, ZoneType.DESERT]
 
 @dataclass
 class Section:
@@ -766,7 +765,6 @@ class GameLoop:
             ZoneType.CAVES: "Seigneur des Cavernes" if is_boss else "Rongeur cavernicole",
             ZoneType.FOREST: "Esprit de la Forêt" if is_boss else "Bandit sylvestre",
             ZoneType.DESERT: "Prince des Dunes" if is_boss else "Charognard du désert",
-            ZoneType.SWAMP: "Souverain des Marais" if is_boss else "Boueux affamé",
         }[zone.zone_type]
 
         return Enemy(

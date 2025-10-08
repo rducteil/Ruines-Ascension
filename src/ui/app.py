@@ -1,5 +1,7 @@
 import pygame, sys, pygame_gui
+from pathlib import Path
 
+from ui.audio import AudioManager
 from ui.screens.intro import IntroScreen
 from ui.screens.main_menu import MainMenuScreen
 from ui.screens.settings import SettingsScreen
@@ -22,6 +24,7 @@ class Screen:
     def __init__(self, app: "PygameApp") -> None:
         self.app = app
         self.ui: pygame_gui.UIManager = app.ui
+        self.mx: pygame.mixer = app.mx
         self.widgets = []
 
     def enter(self) -> None:
@@ -31,6 +34,7 @@ class Screen:
 
     def exit(self) -> None:
         pass
+
 
     def process_event(self, event: pygame.event.Event) -> None:
         # Renvoie le UIManager par default
@@ -74,22 +78,27 @@ class PygameApp:
         self.window = pygame.display.set_mode(size)
         self.clock = pygame.time.Clock()
         self.ui = pygame_gui.UIManager(size)
+        self.mx = pygame.mixer
         self.running = False
 
         self.screens = ScreenManager(self)
         self.session: dict[str, object] = {}    # met player_name, class, etc... pour sauvegarde
 
+        project_root = Path(__file__).resolve().parents[2]
+        self.audio = AudioManager(assets_root=project_root / "assets")
+
         # Active les screens
-        self.screens.register("into", IntroScreen(self))
+        self.screens.register("intro", IntroScreen(self))
         self.screens.register("main_menu", MainMenuScreen(self))
         self.screens.register("settings", SettingsScreen(self))
         self.screens.register("load", LoadScreen(self))
-        self.screens.register("achievements", AchievementsScreen (self))
+        self.screens.register("achievements", AchievementsScreen(self))
         self.screens.register("character_creation", CharacterCreationScreen(self))
 
-        self.screens.set("intro")
+        self.screens.set("main_menu")
 
     def request_quit(self) -> None:
+        self.audio.quit()
         self.running = False
 
     def run(self) -> None:
@@ -111,4 +120,8 @@ class PygameApp:
             pygame.display.flip()
         
         pygame.quit()
+        sys.exit()
 
+if __name__ == "__main__":
+    app = PygameApp()
+    app.run()

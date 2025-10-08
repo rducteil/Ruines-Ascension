@@ -145,42 +145,5 @@
         {"id":"potion_sp_s","w":6,"qty":[1,2]}
               ]
             }
-  },
-
-  { "id": "swamp_leech", "name": "Sangsue des marais",
-    "stats": { "attack": 10, "defense": 4, "luck": 3 }, "hp_max": 32, "sp_max": 10,
-    "attacks": ["LAME_TOXIQUE"], "attack_weights": [1],
-    "scaling": { "hp_per_level": 6, "attack_per_level": 2 },
-    "behavior": "cautious",
-    "drops": {
-      "items": [
-        {"id":"potion_hp_s","w":6,"qty":[1,2]},
-        {"id":"potion_sp_s","w":4,"qty":[1,1]}
-              ]
-            }
-  },
-  { "id": "swamp_ghoul", "name": "Goule suintante",
-    "stats": { "attack": 12, "defense": 6, "luck": 2 }, "hp_max": 38, "sp_max": 12,
-    "attacks": ["FRAPPER", "HEURT"], "attack_weights": [2, 1],
-    "scaling": { "hp_per_level": 7, "attack_per_level": 2, "defense_per_level": 1 },
-    "behavior": "aggressive",
-    "drops": {
-      "items": [
-        {"id":"potion_hp_s","w":6,"qty":[1,2]},
-        {"id":"potion_sp_s","w":4,"qty":[1,1]}
-              ]
-            }
-  },
-  { "id": "swamp_hydra", "name": "Hydre des tourbières",
-    "stats": { "attack": 20, "defense": 12, "luck": 3 }, "hp_max": 110, "sp_max": 18,
-    "attacks": ["ECRASEMENT", "LAME_TOXIQUE"], "attack_weights": [2, 1],
-    "scaling": { "hp_per_level": 14, "attack_per_level": 4, "defense_per_level": 2 },
-    "behavior": "balanced",
-    "drops": {
-      "items": [
-        {"id":"potion_hp_s","w":6,"qty":[2,4]},
-        {"id":"potion_sp_s","w":6,"qty":[1,2]}
-              ]
-            }
   }
 ]

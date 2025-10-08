@@ -34,14 +34,5 @@
     "boss": [
       { "enemy_id": "desert_mummy",    "weight": 1 }
     ]
-  },
-  "SWAMP": {
-    "normal": [
-      { "enemy_id": "swamp_leech", "weight": 6 },
-      { "enemy_id": "swamp_ghoul", "weight": 4 }
-    ],
-    "boss": [
-      { "enemy_id": "swamp_hydra", "weight": 1 }
-    ]
   }
 }

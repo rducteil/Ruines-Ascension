@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from core.equipment import Equipment
 
 # --- Constantes de zones (strings, car les JSON stockent des noms) ---
-ZONE_NAMES = {"RUINS", "CAVES", "FOREST", "DESERT", "SWAMP"}
+ZONE_NAMES = {"RUINS", "CAVES", "FOREST", "DESERT"}
 
 # --- Effets d'event pris en charge (cf. EventEngine._apply_effect_payload) ---
 EVENT_EFFECT_TYPES = {"heal_hp_pct", "give_gold", "damage_hp", "apply_effect", "start_combat"}

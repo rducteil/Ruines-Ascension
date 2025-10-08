@@ -64,7 +64,7 @@
       "ignore_defense_pct": 0.5
     },
     "base_equip":{
-            "weapon": { "name": "Pique cabossé", "durability_max": 100, "bonus_attack": 5, "description": "Un pique fragmenté qui vise les jointures"},
+            "weapon": { "name": "Arbalète cabossé", "durability_max": 100, "bonus_attack": 5, "description": "Un arbalète au bois fragmenté qui reste tenace"},
             "armor": {"name": "Maille cabossée", "durability_max": 100, "bonus_defense": 5, "description": "Une maille morcelée qui endure les coups"},
             "artifact": {"name": "Bousole cabossée", "durability_max": 100, "atk_pct": 0.05, "def_pct": 0.05, "lck_pct": 0.05, "description": "Une bousole accidentée qui guide les égarés"}
     }

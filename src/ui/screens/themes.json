@@ -1,0 +1,11 @@
+{
+    "button":
+    {
+        "normal_border": "White",
+        "normal_bg": "#E4080A",
+        "hovered_bg": "#FE7879",
+        "active_click": "#635DFF",
+        "selected_bg": "#4742C2",
+        "normal_text": "Black"
+    }
+}

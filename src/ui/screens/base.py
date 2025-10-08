@@ -1,12 +1,15 @@
 from __future__ import annotations
 import pygame, pygame_gui
+from pygame_gui.elements import UIButton, UIPanel, UILabel, UITextBox
 from typing import Protocol
+from pathlib import Path
 
 class Screen:
     """Base pour les fenêtres"""
-    def _init__(self, app: "AppLike"):
+    def __init__(self, app: "AppLike"):
         self.app = app
-        self.ui = pygame_gui.UIManager = app.ui
+        self.ui: pygame_gui.UIManager = app.ui
+        self.mx: pygame.mixer = app.mx
     
     def enter(self) -> None:
         self.ui.clear_and_reset()
@@ -27,26 +30,54 @@ class Screen:
 class GameScreen(Screen):
     def enter(self) -> None:
         super().enter()
-        self.scene = SceneView(self.ui, area_rect=...)     # zone haute
-        self.dialog = DialogPanel(self.ui, area_rect=...)  # zone basse
+        w, h = self.app.size
+        top_h = int(h * 0.6)
+        self.scene = SceneView(self.ui, pygame.Rect(0, 0, w, top_h))     # zone haute
+        self.dialog = DialogPanel(self.ui, pygame.Rect(0, top_h, w, h - top_h))  # zone basse
 
 
-# =====================================
-# Protocol et widgets pour les screens
-# =====================================
+# ===============================================
+# Protocol et widgets pour les screens et l'audio
+# ===============================================
+class ScreenManagerLike(Protocol):
+    app: AppLike
+    _screens: dict[str, Screen]
+    current: Screen | None
+    mx: pygame.mixer
+    def register(self, name: str, screen: Screen) -> None: ...
+    def set(self, name: str) -> None: ...
+
+class AudioManagerLike:
+    assets_root: Path
+    music_vol: float
+    sfx_vol: float
+    def _music_path(self, name: str) -> str: ...
+    def play_music(self, filename: str, *, loop: bool = True, fade_ms: int = 600): ...
+    def stop_music(self, fade_ms: int = 400): ...
+    def set_music_volume(self, v: float): ...
+    def _sfx_path(self, name: str): ...
+    def load_sfx(self, filename: str) -> pygame.mixer.Sound: ...
+    def play_sfx(self, filename: str): ...
+    def set_master(self, v: float): ...
+    def quit(self): ...
+
 class AppLike(Protocol):
-        ui: pygame_gui.UIManager
-        size: tuple[int, int]
-        def request_quit(self) -> None: ...
+    ui: pygame_gui.UIManager
+    audio: AudioManagerLike
+    size: tuple[int, int]
+    screens: ScreenManagerLike
+    session: dict[str, object]
+    def request_quit(self) -> None: ...
+
 
 class SceneView:
     """Zone haute : visuels/état (camp, combat, etc.)."""
     def __init__(self, manager: pygame_gui.UIManager, rect: pygame.Rect) -> None:
-        self.container = pygame_gui.elements.UIPanel(rect, manager=manager)
+        self.container = UIPanel(rect, manager=manager)
 
     def set_caption(self, text: str) -> None:
         # Exemple très basique : un titre dans la zone
-        pygame_gui.elements.UILabel(
+        UILabel(
             pygame.Rect(self.container.relative_rect.width//2 - 160, 8, 320, 32),
             text, manager=self.container.ui_manager, container=self.container
         )
@@ -54,13 +85,13 @@ class SceneView:
 class DialogPanel:
     """Zone basse : texte + choix cliquables."""
     def __init__(self, manager: pygame_gui.UIManager, rect: pygame.Rect) -> None:
-        self.container = pygame_gui.elements.UIPanel(rect, manager=manager)
-        self.text_label = pygame_gui.elements.UITextBox(
-            html_text="", relative_rect=pygame.Rect(12, 8, rect.width-24, rect.height-80),
+        self.container = UIPanel(rect, manager=manager)
+        self.text_label = UITextBox(
+            html_text="", relative_rect=pygame.Rect(12, 8, rect.width-24, rect.height-30),
             manager=manager, container=self.container
         )
-        self.choice_buttons: list[pygame_gui.elements.UIButton] = []
-        self._choice_map: dict[pygame_gui.elements.UIButton, int] = {}
+        self.choice_buttons: list[UIButton] = []
+        self._choice_map: dict[UIButton, int] = {}
         self._last_choice: int | None = None
 
     def show_text(self, text: str) -> None:
@@ -75,7 +106,7 @@ class DialogPanel:
         # lay out a la verticale
         y = self.text_label.relative_rect.bottom + 8
         for i, label in enumerate(choices):
-            btn = pygame_gui.elements.UIButton(
+            btn = UIButton(
                 pygame.Rect(16, y, self.container.relative_rect.width-32, 36),
                 label, manager=self.container.ui_manager, container=self.container
             )
@@ -87,7 +118,7 @@ class DialogPanel:
     def handle_event(self, event: pygame.event.Event) -> int | None:
         # à appeler depuis process_event() de l'écran
         if event.type == pygame_gui.UI_BUTTON_PRESSED and event.ui_element in self.choice_buttons:
-            self._last_choice = getattr(event.ui_element, "_veltharia_choice_index", None)
+            self._last_choice = self._choice_map[event.ui_element]
         return self._last_choice
 
     def take_choice(self) -> int | None:
